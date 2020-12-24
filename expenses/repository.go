@@ -1,4 +1,4 @@
-package user
+package expenses
 
 import (
 	"context"
@@ -6,20 +6,20 @@ import (
 	"github.com/jackc/pgtype/pgxtype"
 )
 
-type Repository interface {
+type UserRepository interface {
 	Create(user User) error
 	FindById(id string) (User, error)
 }
 
-type RepositoryImpl struct {
+type PgUserRepository struct {
 	db pgxtype.Querier
 }
 
-func NewRepositoryImpl(db pgxtype.Querier) *RepositoryImpl {
-	return &RepositoryImpl{db: db}
+func NewRepositoryImpl(db pgxtype.Querier) *PgUserRepository {
+	return &PgUserRepository{db: db}
 }
 
-func (r *RepositoryImpl) Create(user User) (User, error) {
+func (r *PgUserRepository) Create(user User) (User, error) {
 	rows, err := r.db.Query(
 		context.Background(),
 		"INSERT INTO users (id, email, password) VALUES ($1, $2, $3)",
@@ -36,6 +36,6 @@ func (r *RepositoryImpl) Create(user User) (User, error) {
 	return user, nil
 }
 
-func (r *RepositoryImpl) FindById(id string) (User, error) {
+func (r *PgUserRepository) FindById(id string) (User, error) {
 	panic("implement me")
 }

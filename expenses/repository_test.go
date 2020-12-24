@@ -1,4 +1,4 @@
-package user_test
+package expenses_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	"go-spend/user"
+	"go-spend/expenses"
 	"io/ioutil"
 	"testing"
 )
@@ -52,6 +52,6 @@ func TestCreateUser(t *testing.T) {
 	_, err = db.Exec(ctx, string(schema))
 	require.NoError(t, err)
 
-	_, err = user.NewRepositoryImpl(db).Create(user.User{ID: 1, Email: "user@mail.com", Password: "password"})
+	_, err = expenses.NewRepositoryImpl(db).Create(expenses.User{ID: 1, Email: "expenses@mail.com", Password: "password"})
 	require.NoError(t, err)
 }
