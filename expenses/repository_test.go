@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/docker/go-connections/nat"
+	"github.com/jackc/pgtype/pgxtype"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
@@ -19,10 +21,45 @@ const (
 	pgPassword = "password"
 	pgDb       = "expenses"
 	pgPort     = nat.Port("5432/tcp")
+
+	deleteAllUsersQuery = "DELETE FROM USERS"
 )
+
+var db = createContainerAndGetDbUrl(context.Background())
 
 func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
+	cleanUpUsers(t, ctx)
+
+	user := expenses.User{ID: 1, Email: "expenses@mail.com", Password: "password"}
+	id, err := expenses.NewPgRepository(db).Create(ctx, user)
+	require.NoError(t, err)
+	assert.Equal(t, user.ID, id)
+}
+
+func TestFindById(t *testing.T) {
+	ctx := context.Background()
+	cleanUpUsers(t, ctx)
+
+	// Create user to retrieve it later
+	repository := expenses.NewPgRepository(db)
+	user := expenses.User{ID: 1, Email: "expenses@mail.com", Password: "password"}
+	_, err := repository.Create(ctx, user)
+	require.NoError(t, err)
+
+	foundUser, err := repository.FindById(ctx, user.ID)
+	require.NoError(t, err)
+	assert.Equal(t, user, foundUser)
+}
+
+func cleanUpUsers(t *testing.T, ctx context.Context) {
+	rows, _ := db.Query(ctx, deleteAllUsersQuery)
+	defer rows.Close()
+	require.NoError(t, rows.Err())
+}
+
+// Creates PG container, applies necessary schema. If there is any error - it will panic
+func createContainerAndGetDbUrl(ctx context.Context) pgxtype.Querier {
 	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        pgImage,
@@ -40,18 +77,27 @@ func TestCreateUser(t *testing.T) {
 		},
 		Started: true,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 	endpoint, err := postgres.Endpoint(ctx, "")
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	url := fmt.Sprintf("postgresql://%s:%s@%s/%s", pgUser, pgPassword, endpoint, pgDb)
-	db, err := pgxpool.Connect(ctx, url)
-	require.NoError(t, err)
-	schema, err := ioutil.ReadFile("../db/001_schema.sql")
-	require.NoError(t, err)
-	_, err = db.Exec(ctx, string(schema))
-	require.NoError(t, err)
 
-	_, err = expenses.NewRepositoryImpl(db).Create(expenses.User{ID: 1, Email: "expenses@mail.com", Password: "password"})
-	require.NoError(t, err)
+	db, err := pgxpool.Connect(ctx, url)
+	if err != nil {
+		panic(err)
+	}
+	schema, err := ioutil.ReadFile("../db/001_schema.sql")
+	if err != nil {
+		panic(err)
+	}
+	_, err = db.Exec(ctx, string(schema))
+	if err != nil {
+		panic(err)
+	}
+	return db
 }

@@ -1,7 +1,7 @@
 package expenses
 
 type User struct {
-	ID       uint64
+	ID       uint
 	Email    string
 	Password string
 }

@@ -1,3 +1,4 @@
+// Simple logger wrapper that prepends log level
 package log
 
 import (
@@ -16,36 +17,40 @@ var Level = InfoLvl
 
 func Trace(msg string, args ...interface{}) {
 	if Level <= TraceLvl {
-		log.Printf(msg, args...)
+		log.Printf("[TRACE] "+msg, args...)
 	}
 }
 
 func Debug(msg string, args ...interface{}) {
 	if Level <= DebugLvl {
-		log.Printf(msg, args...)
+		log.Printf("[DEBUG] "+msg, args...)
 	}
 }
 
 func Info(msg string, args ...interface{}) {
 	if Level <= InfoLvl {
-		log.Printf(msg, args...)
+		log.Printf("[INFO] "+msg, args...)
 	}
 }
 
 func Warn(msg string, args ...interface{}) {
 	if Level <= WarnLvl {
-		log.Printf(msg, args...)
+		log.Printf("[WARN] "+msg, args...)
 	}
 }
 
 func Error(msg string, args ...interface{}) {
 	if Level <= ErrorLvl {
-		log.Printf(msg, args...)
+		log.Printf("[ERROR] "+msg, args...)
 	}
 }
 
 func Fatal(msg string, args ...interface{}) {
 	if Level <= ErrorLvl {
-		log.Printf(msg, args...)
+		log.Printf("[FATAL] "+msg, args...)
 	}
+}
+
+func FatalErr(err error) {
+	Fatal(err.Error())
 }
