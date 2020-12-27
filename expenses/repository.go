@@ -8,7 +8,7 @@ import (
 // UserRepository is an repository of users of the expenses system
 type UserRepository interface {
 	// Creates User in the storage
-	Create(context.Context, CreateUser) (User, error)
+	Create(context.Context, CreateUserRequest) (User, error)
 	// Find user by its ID
 	FindById(ctx context.Context, id uint) (User, error)
 }
@@ -29,7 +29,7 @@ func NewPgRepository(db pgxtype.Querier) *PgUserRepository {
 	return &PgUserRepository{db: db}
 }
 
-func (r *PgUserRepository) Create(ctx context.Context, user CreateUser) (User, error) {
+func (r *PgUserRepository) Create(ctx context.Context, user CreateUserRequest) (User, error) {
 	var id uint
 	rows, _ := r.db.Query(
 		ctx,

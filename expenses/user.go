@@ -6,7 +6,12 @@ type User struct {
 	Password string
 }
 
-type CreateUser struct {
+type CreateUserRequest struct {
 	Email    string
 	Password string
+}
+
+type UserReponse struct {
+	ID    uint
+	Email string
 }

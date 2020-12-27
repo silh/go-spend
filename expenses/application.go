@@ -12,8 +12,9 @@ import (
 
 // Config of the Application
 type Config struct {
-	Port uint
-	DB   DBConfig
+	Port                 uint
+	ServerRequestTimeout uint
+	DB                   DBConfig
 }
 
 // Configuration of DB connection
@@ -28,8 +29,8 @@ type DBConfig struct {
 
 // Container for all application things.
 type Application struct {
-	config     Config
-	repository UserRepository
+	config      Config
+	userService UserService
 }
 
 // Create new Application to handle expenses
@@ -43,29 +44,41 @@ func NewApplication(config Config) (*Application, error) {
 		return nil, err
 	}
 	userRepository := NewPgRepository(db)
+	userService := NewDefaultUserService(userRepository)
 
-	return &Application{config: config, repository: userRepository}, nil
+	return &Application{config: config, userService: userService}, nil
 }
 
 func (a *Application) Start() error {
 	mux := http.NewServeMux()
-	mux.Handle("/users", http.HandlerFunc(handleCreateUser))
+	mux.Handle("/users", http.HandlerFunc(a.handleCreateUser))
 
 	log.Info("Starting a server on port 8080...")
 	return http.ListenAndServe(":8080", mux)
 }
 
-func handleCreateUser(w http.ResponseWriter, r *http.Request) {
+func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Not supported", http.StatusBadRequest)
 		return
 	}
-	var user User
-	err := json.NewDecoder(r.Body).Decode(&user)
+	var createUserRequest CreateUserRequest
+	err := json.NewDecoder(r.Body).Decode(&createUserRequest)
 	if err != nil {
 		http.Error(w, "Incorrect body", http.StatusBadRequest)
 	}
-
+	createdUser, err := a.userService.Create(r.Context(), createUserRequest)
+	if err != nil {
+		log.Error("error while trying to create a user with email %s - %s", createUserRequest.Email, err)
+		http.Error(w, "Server error", http.StatusInternalServerError)
+	}
 	w.WriteHeader(http.StatusCreated)
-
+	if err = json.NewEncoder(w).Encode(createdUser); err != nil {
+		log.Error(
+			"Could not write body to the create user response with email %s - %s",
+			createUserRequest.Email,
+			err,
+		)
+		http.Error(w, "Server error", http.StatusInternalServerError)
+	}
 }

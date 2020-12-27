@@ -31,7 +31,7 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpUsers(t, ctx)
 
-	user := expenses.CreateUser{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := expenses.NewPgRepository(db).Create(ctx, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
@@ -43,7 +43,7 @@ func TestFindById(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgRepository(db)
-	user := expenses.CreateUser{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := repository.Create(ctx, user)
 	require.NoError(t, err)
 
