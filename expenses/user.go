@@ -1,17 +1,21 @@
 package expenses
 
+import (
+	"go-spend/util"
+)
+
 type User struct {
 	ID       uint
-	Email    string
+	Email    util.Email
 	Password string
 }
 
 type CreateUserRequest struct {
-	Email    string
-	Password string
+	Email       util.Email
+	RawPassword string
 }
 
-type UserReponse struct {
+type UserResponse struct {
 	ID    uint
-	Email string
+	Email util.Email
 }

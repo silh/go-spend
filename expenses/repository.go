@@ -2,7 +2,18 @@ package expenses
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype/pgxtype"
+)
+
+const (
+	// PG Error codes
+	uniqueViolation = "23505"
+)
+
+var (
+	ErrEmailAlreadyExists = errors.New("user with such email already exists")
 )
 
 // UserRepository is an repository of users of the expenses system
@@ -23,47 +34,27 @@ type PgUserRepository struct {
 	db pgxtype.Querier
 }
 
-// NewPgRepository create new PgUserRepository. According to docs all pgxtype.Querier Query calls return rows so the
-// returned exception is ignored as it is provided by rows.Error()
+// NewPgRepository create new PgUserRepository
 func NewPgRepository(db pgxtype.Querier) *PgUserRepository {
 	return &PgUserRepository{db: db}
 }
 
 func (r *PgUserRepository) Create(ctx context.Context, user CreateUserRequest) (User, error) {
 	var id uint
-	rows, _ := r.db.Query(
-		ctx,
-		createUserQuery,
-		user.Email,
-		user.Password,
-	)
-	defer rows.Close()
-	if rows.Err() != nil {
-		return User{}, rows.Err()
-	}
-	for rows.Next() {
-		if err := rows.Scan(&id); err != nil {
-			return User{}, err
+	if err := r.db.QueryRow(ctx, createUserQuery, user.Email, user.RawPassword).Scan(&id); err != nil {
+		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
+			return User{}, ErrEmailAlreadyExists
 		}
+		return User{}, err
 	}
-
-	return User{ID: id, Email: user.Email, Password: user.Password}, nil
+	return User{ID: id, Email: user.Email, Password: user.RawPassword}, nil
 }
 
 // Looks up user in DB and returns it if it was found. Return zero value User if it was not found
 func (r *PgUserRepository) FindById(ctx context.Context, id uint) (User, error) {
 	var user User
-	rows, _ := r.db.Query(
-		ctx,
-		findUserByIdQuery,
-		id,
-	)
-	defer rows.Close()
-	if rows.Err() != nil {
-		return user, rows.Err()
+	if err := r.db.QueryRow(ctx, findUserByIdQuery, id).Scan(&user.ID, &user.Email, &user.Password); err != nil {
+		return User{}, err
 	}
-	if !rows.Next() {
-		return user, nil
-	}
-	return user, rows.Scan(&user.ID, &user.Email, &user.Password)
+	return user, nil
 }

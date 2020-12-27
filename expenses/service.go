@@ -3,7 +3,7 @@ package expenses
 import "context"
 
 type UserService interface {
-	Create(ctx context.Context, request CreateUserRequest) (UserReponse, error)
+	Create(ctx context.Context, request CreateUserRequest) (UserResponse, error)
 }
 
 // DefaultUserService responsible for business logic with User type.
@@ -17,10 +17,10 @@ func NewDefaultUserService(repository UserRepository) *DefaultUserService {
 }
 
 // Store a new user in repository. CreateUserRequest is expected to be valid.
-func (d *DefaultUserService) Create(ctx context.Context, request CreateUserRequest) (UserReponse, error) {
+func (d *DefaultUserService) Create(ctx context.Context, request CreateUserRequest) (UserResponse, error) {
 	createdUser, err := d.repository.Create(ctx, request)
 	if err != nil {
-		return UserReponse{}, err
+		return UserResponse{}, err
 	}
-	return UserReponse{ID: createdUser.ID, Email: createdUser.Email}, nil
+	return UserResponse{ID: createdUser.ID, Email: createdUser.Email}, nil
 }

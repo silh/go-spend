@@ -23,7 +23,7 @@ func (m *MockUserRepository) Create(ctx context.Context, request expenses.Create
 	return args.Get(0).(expenses.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FindById(ctx context.Context, id uint) (expenses.User, error) {
+func (m *MockUserRepository) FindById(context.Context, uint) (expenses.User, error) {
 	panic("implement me")
 }
 
@@ -37,11 +37,11 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 	service := expenses.NewDefaultUserService(mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, RawPassword: "123"}
 	createdUser := expenses.User{ID: 1, Email: validEmail, Password: "123"}
 	mockRepo.On("Create", ctx, request).Return(createdUser, nil)
 
-	expected := expenses.UserReponse{ID: createdUser.ID, Email: createdUser.Email}
+	expected := expenses.UserResponse{ID: createdUser.ID, Email: createdUser.Email}
 
 	actual, err := service.Create(ctx, request)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestDefaultUserServiceCreateError(t *testing.T) {
 	service := expenses.NewDefaultUserService(mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, RawPassword: "123"}
 	expectedError := errors.New("db is not accessible")
 	mockRepo.On("Create", ctx, request).Return(expenses.User{}, expectedError)
 

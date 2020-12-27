@@ -11,7 +11,9 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
 	"go-spend/expenses"
+	"go-spend/util"
 	"io/ioutil"
+	"strings"
 	"testing"
 )
 
@@ -31,10 +33,34 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpUsers(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
 	created, err := expenses.NewPgRepository(db).Create(ctx, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
+}
+
+func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
+	ctx := context.Background()
+	cleanUpUsers(t, ctx)
+
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
+	repository := expenses.NewPgRepository(db)
+	_, _ = repository.Create(ctx, user)
+	created2, err := repository.Create(ctx, user)
+	assert.Zero(t, created2)
+	assert.EqualError(t, err, expenses.ErrEmailAlreadyExists.Error())
+}
+
+func TestCantStoreTooLongEmail(t *testing.T) {
+	// this should not happen in real application as an email should be validated, added to check the constraint
+	ctx := context.Background()
+	cleanUpUsers(t, ctx)
+
+	user := expenses.CreateUserRequest{Email: createLongEmail(), RawPassword: "password"}
+	repository := expenses.NewPgRepository(db)
+	created, err := repository.Create(ctx, user)
+	assert.Zero(t, created)
+	assert.Error(t, err)
 }
 
 func TestFindById(t *testing.T) {
@@ -43,7 +69,7 @@ func TestFindById(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgRepository(db)
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
 	created, err := repository.Create(ctx, user)
 	require.NoError(t, err)
 
@@ -56,6 +82,16 @@ func cleanUpUsers(t *testing.T, ctx context.Context) {
 	rows, _ := db.Query(ctx, deleteAllUsersQuery)
 	defer rows.Close()
 	require.NoError(t, rows.Err())
+}
+
+func createLongEmail() util.Email {
+	suffix := "@email.com"
+	builder := strings.Builder{}
+	for i := 0; i < 321-len(suffix); i++ {
+		builder.WriteRune('c')
+	}
+	builder.WriteString(suffix)
+	return util.Email(builder.String())
 }
 
 // Creates PG container, applies necessary schema. If there is any error - it will panic

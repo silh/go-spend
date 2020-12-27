@@ -63,14 +63,19 @@ func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var createUserRequest CreateUserRequest
-	err := json.NewDecoder(r.Body).Decode(&createUserRequest)
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 		http.Error(w, "Incorrect body", http.StatusBadRequest)
+		return
 	}
 	createdUser, err := a.userService.Create(r.Context(), createUserRequest)
 	if err != nil {
+		if err == ErrEmailAlreadyExists {
+			http.Error(w, "User already exists", http.StatusBadRequest)
+			return
+		}
 		log.Error("error while trying to create a user with email %s - %s", createUserRequest.Email, err)
 		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
 	}
 	w.WriteHeader(http.StatusCreated)
 	if err = json.NewEncoder(w).Encode(createdUser); err != nil {
@@ -80,5 +85,7 @@ func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 			err,
 		)
 		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
 	}
+	log.Info("Created a new user - %s", createdUser.Email)
 }

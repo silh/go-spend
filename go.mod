@@ -6,6 +6,7 @@ require (
 	github.com/docker/go-connections v0.4.0
 	github.com/go-redis/redis/v8 v8.4.4 // indirect
 	github.com/golang/mock v1.4.4 // indirect
+	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgtype v1.6.2
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/stretchr/testify v1.6.1
