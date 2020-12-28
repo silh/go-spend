@@ -33,7 +33,7 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpUsers(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := expenses.NewPgRepository(db).Create(ctx, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
@@ -43,7 +43,7 @@ func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpUsers(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	repository := expenses.NewPgRepository(db)
 	_, _ = repository.Create(ctx, user)
 	created2, err := repository.Create(ctx, user)
@@ -56,7 +56,7 @@ func TestCantStoreTooLongEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpUsers(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: createLongEmail(), RawPassword: "password"}
+	user := expenses.CreateUserRequest{Email: createLongEmail(), Password: "password"}
 	repository := expenses.NewPgRepository(db)
 	created, err := repository.Create(ctx, user)
 	assert.Zero(t, created)
@@ -69,7 +69,7 @@ func TestFindById(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgRepository(db)
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", RawPassword: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := repository.Create(ctx, user)
 	require.NoError(t, err)
 

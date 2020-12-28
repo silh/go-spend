@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestNewEmail(t *testing.T) {
+func TestValidEmail(t *testing.T) {
 	tests := []struct {
 		name  string
 		email string
@@ -24,14 +24,14 @@ func TestNewEmail(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := util.NewEmail(test.email)
+			result, err := util.ValidEmail(test.email)
 			require.NoError(t, err)
 			assert.Equal(t, test.email, string(result))
 		})
 	}
 }
 
-func TestNewEmailErrors(t *testing.T) {
+func TestValidEmailErrors(t *testing.T) {
 	tests := []struct {
 		name  string
 		email string
@@ -74,7 +74,7 @@ func TestNewEmailErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := util.NewEmail(test.email)
+			result, err := util.ValidEmail(test.email)
 			require.Error(t, err)
 			assert.Zero(t, result)
 		})

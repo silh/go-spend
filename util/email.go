@@ -17,7 +17,7 @@ var (
 type Email string
 
 // Validates an email address.
-func NewEmail(email string) (Email, error) {
+func ValidEmail(email string) (Email, error) {
 	if !simpleEmailValidationRegexp.MatchString(email) {
 		return "", ErrIncorrectEmail
 	}

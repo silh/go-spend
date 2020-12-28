@@ -37,7 +37,7 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 	service := expenses.NewDefaultUserService(mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, RawPassword: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
 	createdUser := expenses.User{ID: 1, Email: validEmail, Password: "123"}
 	mockRepo.On("Create", ctx, request).Return(createdUser, nil)
 
@@ -53,7 +53,7 @@ func TestDefaultUserServiceCreateError(t *testing.T) {
 	service := expenses.NewDefaultUserService(mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, RawPassword: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
 	expectedError := errors.New("db is not accessible")
 	mockRepo.On("Create", ctx, request).Return(expenses.User{}, expectedError)
 

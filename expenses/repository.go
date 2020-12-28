@@ -41,13 +41,13 @@ func NewPgRepository(db pgxtype.Querier) *PgUserRepository {
 
 func (r *PgUserRepository) Create(ctx context.Context, user CreateUserRequest) (User, error) {
 	var id uint
-	if err := r.db.QueryRow(ctx, createUserQuery, user.Email, user.RawPassword).Scan(&id); err != nil {
+	if err := r.db.QueryRow(ctx, createUserQuery, user.Email, user.Password).Scan(&id); err != nil {
 		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
 			return User{}, ErrEmailAlreadyExists
 		}
 		return User{}, err
 	}
-	return User{ID: id, Email: user.Email, Password: user.RawPassword}, nil
+	return User{ID: id, Email: user.Email, Password: user.Password}, nil
 }
 
 // Looks up user in DB and returns it if it was found. Return zero value User if it was not found
