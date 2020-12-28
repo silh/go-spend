@@ -4,7 +4,7 @@ import (
 	"go-spend/util"
 )
 
-// Internal user type, will not be shared outside of the application.
+// Internal user type, will not be shared outside of the application. Every User can only be in one group.
 type User struct {
 	ID       uint
 	Email    util.Email

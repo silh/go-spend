@@ -43,8 +43,8 @@ func NewApplication(config Config) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	userRepository := NewPgRepository(db)
-	userService := NewDefaultUserService(userRepository)
+	userRepository := NewPgUserRepository()
+	userService := NewDefaultUserService(db, userRepository)
 
 	return &Application{config: config, userService: userService}, nil
 }

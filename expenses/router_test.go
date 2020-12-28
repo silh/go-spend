@@ -24,15 +24,24 @@ func (m *mockUserService) Create(ctx context.Context, request expenses.CreateUse
 	return args.Get(0).(expenses.UserResponse), args.Error(1)
 }
 
+type mockGroupService struct {
+	mock.Mock
+}
+
+func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupRequest) (expenses.Group, error) {
+	args := m.Called(ctx, request)
+	return args.Get(0).(expenses.Group), args.Error(1)
+}
+
 func TestNewRouter(t *testing.T) {
-	router := expenses.NewRouter(new(mockUserService))
+	router := expenses.NewRouter(new(mockUserService), new(mockGroupService))
 	assert.NotNil(t, router)
 }
 
 func TestCreateUserWithProperParams(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService)
+	router := expenses.NewRouter(userService, new(mockGroupService))
 
 	createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -59,7 +68,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService)
+	router := expenses.NewRouter(userService, new(mockGroupService))
 
 	createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -77,7 +86,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 func TestCreateUserWithIncorrectBody(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService)
+	router := expenses.NewRouter(userService, new(mockGroupService))
 
 	createUserRequest := struct {
 		something int64
@@ -97,7 +106,7 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 func TestCreateUserWithEmptyFields(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService)
+	router := expenses.NewRouter(userService, new(mockGroupService))
 
 	createUserRequest := struct {
 		something int64
@@ -136,7 +145,7 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := expenses.NewRouter(userService)
+			router := expenses.NewRouter(userService, new(mockGroupService))
 			jsonBody, err := json.Marshal(&test.body)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
@@ -184,7 +193,7 @@ func TestServiceError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := expenses.NewRouter(userService)
+			router := expenses.NewRouter(userService, new(mockGroupService))
 
 			createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
 			jsonBody, err := json.Marshal(createUserRequest)

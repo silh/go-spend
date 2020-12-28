@@ -3,6 +3,7 @@ package expenses_test
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgtype/pgxtype"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,23 +19,23 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(ctx context.Context, request expenses.CreateUserRequest) (expenses.User, error) {
+func (m *MockUserRepository) Create(ctx context.Context, db pgxtype.Querier, request expenses.CreateUserRequest) (expenses.User, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(expenses.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FindById(context.Context, uint) (expenses.User, error) {
+func (m *MockUserRepository) FindById(ctx context.Context, db pgxtype.Querier, id uint) (expenses.User, error) {
 	panic("implement me")
 }
 
 func TestNewDefaultUserService(t *testing.T) {
-	service := expenses.NewDefaultUserService(new(MockUserRepository))
+	service := expenses.NewDefaultUserService(new(MockTxQuerier), new(MockUserRepository))
 	assert.NotNil(t, service)
 }
 
 func TestDefaultUserServiceCreate(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := expenses.NewDefaultUserService(mockRepo)
+	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
 
 	ctx := context.Background()
 	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
@@ -50,7 +51,7 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 
 func TestDefaultUserServiceCreateError(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := expenses.NewDefaultUserService(mockRepo)
+	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
 
 	ctx := context.Background()
 	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
