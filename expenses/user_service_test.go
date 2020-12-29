@@ -19,12 +19,12 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(ctx context.Context, db pgxtype.Querier, request expenses.CreateUserRequest) (expenses.User, error) {
+func (m *MockUserRepository) Create(ctx context.Context, _ pgxtype.Querier, request expenses.CreateUserContext) (expenses.User, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(expenses.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FindById(ctx context.Context, db pgxtype.Querier, id uint) (expenses.User, error) {
+func (m *MockUserRepository) FindById(_ context.Context, _ pgxtype.Querier, _ uint) (expenses.User, error) {
 	panic("implement me")
 }
 
@@ -38,7 +38,7 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
 	createdUser := expenses.User{ID: 1, Email: validEmail, Password: "123"}
 	mockRepo.On("Create", ctx, request).Return(createdUser, nil)
 
@@ -54,7 +54,7 @@ func TestDefaultUserServiceCreateError(t *testing.T) {
 	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
 	expectedError := errors.New("db is not accessible")
 	mockRepo.On("Create", ctx, request).Return(expenses.User{}, expectedError)
 

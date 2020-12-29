@@ -16,7 +16,7 @@ const (
 // UserRepository is an repository of users of the expenses system
 type UserRepository interface {
 	// Creates User in the storage
-	Create(context.Context, pgxtype.Querier, CreateUserRequest) (User, error)
+	Create(context.Context, pgxtype.Querier, CreateUserContext) (User, error)
 	// Find user by its ID
 	FindById(ctx context.Context, db pgxtype.Querier, id uint) (User, error)
 }
@@ -40,7 +40,7 @@ func NewPgUserRepository() *PgUserRepository {
 	return &PgUserRepository{}
 }
 
-func (r *PgUserRepository) Create(ctx context.Context, db pgxtype.Querier, user CreateUserRequest) (User, error) {
+func (r *PgUserRepository) Create(ctx context.Context, db pgxtype.Querier, user CreateUserContext) (User, error) {
 	var id uint
 	if err := db.QueryRow(ctx, createUserQuery, user.Email, user.Password).Scan(&id); err != nil {
 		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {

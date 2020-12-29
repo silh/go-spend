@@ -67,7 +67,7 @@ func TestAddUserToGroup(t *testing.T) {
 	groupRepository := expenses.NewPgGroupRepository()
 
 	// create user and group
-	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
 	require.NoError(t, err)
 	groupName := util.NonEmptyString("myGroup")
 	group, err := groupRepository.Create(ctx, pgDB, groupName)
@@ -85,7 +85,7 @@ func TestFindGroupByUserID(t *testing.T) {
 	groupRepository := expenses.NewPgGroupRepository()
 
 	// create user and group, add user to group
-	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
 	require.NoError(t, err)
 	groupName := util.NonEmptyString("myGroup")
 	group, err := groupRepository.Create(ctx, pgDB, groupName)
@@ -96,4 +96,30 @@ func TestFindGroupByUserID(t *testing.T) {
 	found, err := groupRepository.FindByUserID(ctx, pgDB, user.ID)
 	require.NoError(t, err)
 	assert.Equal(t, group, found)
+}
+
+func TestFindWithUsersByID(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	userRepository := expenses.NewPgUserRepository()
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group, add user to group
+	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
+	require.NoError(t, err)
+	groupName := util.NonEmptyString("myGroup")
+	group, err := groupRepository.Create(ctx, pgDB, groupName)
+	require.NoError(t, err)
+	err = groupRepository.AddUserToGroup(ctx, pgDB, user.ID, group.ID)
+	require.NoError(t, err)
+
+	// Find group with users and check result
+	expectedUser := expenses.UserResponse{ID: user.ID, Email: user.Email}
+	found, err := groupRepository.FindByIDWithUsers(ctx, pgDB, group.ID)
+	require.NoError(t, err)
+	assert.Equal(t, group.ID, found.ID)
+	assert.Equal(t, group.Name, found.Name)
+	require.Equal(t, 1, len(found.Users))
+	assert.Equal(t, expectedUser, found.Users[0])
 }

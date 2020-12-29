@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/jackc/pgconn"
-	"github.com/jackc/pgtype/pgxtype"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/mock"
@@ -16,7 +15,7 @@ import (
 )
 
 // Creates PG container, applies necessary schema. If there is any error - it will panic
-func createContainerAndGetDbUrl(ctx context.Context) pgxtype.Querier {
+func createContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
 	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        pgImage,
@@ -70,18 +69,18 @@ type MockTxQuerier struct {
 	mock.Mock
 }
 
-func (m *MockTxQuerier) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
+func (m *MockTxQuerier) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) Query(ctx context.Context, sql string, optionsAndArgs ...interface{}) (pgx.Rows, error) {
+func (m *MockTxQuerier) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) QueryRow(ctx context.Context, sql string, optionsAndArgs ...interface{}) pgx.Row {
+func (m *MockTxQuerier) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) Begin(ctx context.Context) (pgx.Tx, error) {
+func (m *MockTxQuerier) Begin(_ context.Context) (pgx.Tx, error) {
 	panic("implement me")
 }

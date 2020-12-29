@@ -1,4 +1,4 @@
-package util
+package expenses
 
 import "errors"
 

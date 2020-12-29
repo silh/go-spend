@@ -8,6 +8,12 @@ type Group struct {
 	Name util.NonEmptyString
 }
 
+type GroupResponse struct {
+	ID    uint                `json:"id"`
+	Name  util.NonEmptyString `json:"name"`
+	Users []UserResponse      `json:"users"`
+}
+
 // A request to create a group
 type CreateGroupRequest struct {
 	Name      util.NonEmptyString `json:"name"`

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go-spend/expenses"
-	"go-spend/util"
 	"strings"
 	"testing"
 )
@@ -27,7 +26,7 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
 	created, err := expenses.NewPgUserRepository().Create(ctx, pgDB, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
@@ -37,7 +36,7 @@ func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
 	repository := expenses.NewPgUserRepository()
 	_, _ = repository.Create(ctx, pgDB, user)
 	created2, err := repository.Create(ctx, pgDB, user)
@@ -50,7 +49,7 @@ func TestCantStoreTooLongEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserRequest{Email: createLongEmail(), Password: "password"}
+	user := expenses.CreateUserContext{Email: createLongEmail(), Password: "password"}
 	repository := expenses.NewPgUserRepository()
 	created, err := repository.Create(ctx, pgDB, user)
 	assert.Zero(t, created)
@@ -63,7 +62,7 @@ func TestFindById(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
-	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
 	created, err := repository.Create(ctx, pgDB, user)
 	require.NoError(t, err)
 
@@ -83,12 +82,12 @@ func TestFindByIdNonExistentUser(t *testing.T) {
 	assert.Zero(t, foundUser)
 }
 
-func createLongEmail() util.Email {
+func createLongEmail() expenses.Email {
 	suffix := "@email.com"
 	builder := strings.Builder{}
 	for i := 0; i < 321-len(suffix); i++ {
 		builder.WriteRune('c')
 	}
 	builder.WriteString(suffix)
-	return util.Email(builder.String())
+	return expenses.Email(builder.String())
 }
