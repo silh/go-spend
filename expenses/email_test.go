@@ -1,9 +1,9 @@
-package util_test
+package expenses_test
 
 import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go-spend/util"
+	"go-spend/expenses"
 	"strings"
 	"testing"
 )
@@ -24,7 +24,7 @@ func TestValidEmail(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := util.ValidEmail(test.email)
+			result, err := expenses.ValidEmail(test.email)
 			require.NoError(t, err)
 			assert.Equal(t, test.email, string(result))
 		})
@@ -74,7 +74,7 @@ func TestValidEmailErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result, err := util.ValidEmail(test.email)
+			result, err := expenses.ValidEmail(test.email)
 			require.Error(t, err)
 			assert.Zero(t, result)
 		})

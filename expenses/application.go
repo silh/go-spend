@@ -43,8 +43,8 @@ func NewApplication(config Config) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	userRepository := NewPgRepository(db)
-	userService := NewDefaultUserService(userRepository)
+	userRepository := NewPgUserRepository()
+	userService := NewDefaultUserService(db, userRepository)
 
 	return &Application{config: config, userService: userService}, nil
 }
@@ -62,7 +62,7 @@ func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not supported", http.StatusBadRequest)
 		return
 	}
-	var createUserRequest CreateUserRequest
+	var createUserRequest CreateUserContext
 	if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 		http.Error(w, "Incorrect body", http.StatusBadRequest)
 		return

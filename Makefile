@@ -1,7 +1,7 @@
 all: fmt
 	@go build ./cmd/go-spend
 
-test:
+test: fmt
 	@go test ./...
 
 fmt:

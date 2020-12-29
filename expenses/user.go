@@ -1,14 +1,10 @@
 package expenses
 
-import (
-	"go-spend/util"
-)
-
-// Internal user type, will not be shared outside of the application.
+// Internal user type, will not be shared outside of the application. Every User can only be in one group.
 type User struct {
 	ID       uint
-	Email    util.Email
-	Password util.Password
+	Email    Email
+	Password Password
 }
 
 // Raw create user request
@@ -18,26 +14,26 @@ type RawCreateUserRequest struct {
 }
 
 // Validated create user request
-type CreateUserRequest struct {
-	Email    util.Email
-	Password util.Password
+type CreateUserContext struct {
+	Email    Email
+	Password Password
 }
 
 // Validates email and password
-func ValidCreateUserRequest(rawRequest RawCreateUserRequest) (CreateUserRequest, error) {
-	email, err := util.ValidEmail(rawRequest.Email)
+func ValidCreateUserRequest(rawRequest RawCreateUserRequest) (CreateUserContext, error) {
+	email, err := ValidEmail(rawRequest.Email)
 	if err != nil {
-		return CreateUserRequest{}, err
+		return CreateUserContext{}, err
 	}
-	password, err := util.ValidPassword(rawRequest.Password)
+	password, err := ValidPassword(rawRequest.Password)
 	if err != nil {
-		return CreateUserRequest{}, err
+		return CreateUserContext{}, err
 	}
-	return CreateUserRequest{Email: email, Password: password}, nil
+	return CreateUserContext{Email: email, Password: password}, nil
 }
 
 // contains information returned when the User information is requested
 type UserResponse struct {
 	ID    uint
-	Email util.Email
+	Email Email
 }

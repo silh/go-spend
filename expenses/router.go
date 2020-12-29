@@ -6,17 +6,23 @@ import (
 	"net/http"
 )
 
+const (
+	IncorrectBody = "Incorrect body"
+)
+
 // Maps HTTP request to proper service. Validates parameters before passing them
 type Router struct {
-	userService UserService
-	mux         http.Handler
+	userService  UserService
+	groupService GroupService
+	mux          http.Handler
 }
 
 // Create new router instance
-func NewRouter(userService UserService) *Router {
+func NewRouter(userService UserService, groupService GroupService) *Router {
 	mux := http.NewServeMux()
 	r := &Router{userService: userService, mux: mux}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
+	mux.Handle("/groups", http.HandlerFunc(r.handleGroups))
 	return r
 }
 
@@ -37,12 +43,12 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&rawRequest); err != nil {
-		http.Error(w, "Incorrect body", http.StatusBadRequest)
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
 	createUserRequest, err := ValidCreateUserRequest(rawRequest)
 	if err != nil {
-		http.Error(w, "Incorrect body", http.StatusBadRequest)
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
 	createdUser, err := router.userService.Create(r.Context(), createUserRequest)
@@ -66,4 +72,23 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Info("Created a new user - %s", createdUser.Email)
+}
+
+func (router *Router) handleGroups(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	router.handleCreateGroup(w, r)
+}
+
+func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
+	var createGroupRequest CreateGroupRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&createGroupRequest); err != nil {
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
+		return
+	}
+	//create, err := router.groupService.Create(r.Context(), createGroupRequest)
 }
