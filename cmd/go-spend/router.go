@@ -26,7 +26,8 @@ type Router struct {
 func NewRouter(
 	userService expenses.UserService,
 	groupService expenses.GroupService,
-	authenticator authentication.Authenticator) *Router {
+	authenticator authentication.Authenticator,
+) *Router {
 	mux := http.NewServeMux()
 	r := &Router{userService: userService, groupService: groupService, authenticator: authenticator, mux: mux}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))

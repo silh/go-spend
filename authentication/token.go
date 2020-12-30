@@ -37,7 +37,7 @@ func NewTokenCreator(accessAlgorithm *jwt.Algorithm, refreshAlgorithm *jwt.Algor
 		accessAlgorithm:        accessAlgorithm,
 		refreshAlgorithm:       refreshAlgorithm,
 		accessTokenExpiration:  15 * time.Minute, // hardcoded for now, if necessary can be made configurable
-		refreshTokenExpiration: 30 * time.Minute,
+		refreshTokenExpiration: 24 * time.Hour,
 	}
 }
 
