@@ -22,7 +22,7 @@ type MockUserRepository struct {
 func (m *MockUserRepository) Create(
 	ctx context.Context,
 	db pgxtype.Querier,
-	request expenses.CreateUserContext,
+	request expenses.CreateUserRequest,
 ) (expenses.User, error) {
 	args := m.Called(ctx, db, request)
 	return args.Get(0).(expenses.User), args.Error(1)
@@ -47,7 +47,7 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
 	createdUser := expenses.User{ID: 1, Email: validEmail, Password: "123"}
 	mockRepo.On("Create", ctx, db, request).Return(createdUser, nil)
 
@@ -64,7 +64,7 @@ func TestDefaultUserServiceCreateError(t *testing.T) {
 	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()
-	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
+	request := expenses.CreateUserRequest{Email: validEmail, Password: "123"}
 	expectedError := errors.New("db is not accessible")
 	mockRepo.On("Create", ctx, db, request).Return(expenses.User{}, expectedError)
 

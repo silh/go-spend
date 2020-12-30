@@ -22,7 +22,7 @@ func TestCreateGroupWithCreator(t *testing.T) {
 	groupService := expenses.NewDefaultGroupService(PGDB, userRepository, expenses.NewPgGroupRepository())
 
 	// Create a user so that it can create a group
-	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserContext{Email: validEmail, Password: "12314"})
+	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserRequest{Email: validEmail, Password: "12314"})
 	require.NoError(t, err)
 	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: user.ID}
 

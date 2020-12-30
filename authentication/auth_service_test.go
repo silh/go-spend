@@ -21,7 +21,7 @@ type mockUserRepository struct {
 func (m *mockUserRepository) Create(
 	_ context.Context,
 	_ pgxtype.Querier,
-	_ expenses.CreateUserContext,
+	_ expenses.CreateUserRequest,
 ) (expenses.User, error) {
 	panic("implement me")
 }

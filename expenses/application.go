@@ -62,7 +62,7 @@ func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not supported", http.StatusBadRequest)
 		return
 	}
-	var createUserRequest CreateUserContext
+	var createUserRequest CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 		http.Error(w, "Incorrect body", http.StatusBadRequest)
 		return

@@ -1,4 +1,4 @@
-package expenses_test
+package authentication_test
 
 import (
 	"encoding/json"
@@ -9,16 +9,16 @@ import (
 	"testing"
 )
 
-func TestCreateUserRequestUnmarshalJSON(t *testing.T) {
-	createJSON := `{"email": "some@mail.ru", "password":"anewpassword"}`
-	var req expenses.CreateUserRequest
-	err := json.Unmarshal([]byte(createJSON), &req)
+func TestAuthRequestUnmarshalJSON(t *testing.T) {
+	authJSON := `{"email": "mail@mail.com", "password": "password"}`
+	var req authentication.AuthRequest
+	err := json.Unmarshal([]byte(authJSON), &req)
 	require.NoError(t, err)
-	assert.Equal(t, expenses.Email("some@mail.ru"), req.Email)
-	assert.Equal(t, expenses.Password("anewpassword"), req.Password)
+	assert.Equal(t, expenses.Email("mail@mail.com"), req.Email)
+	assert.Equal(t, expenses.Password("password"), req.Password)
 }
 
-func TestCreateUserRequestUnmarshalJSONErrors(t *testing.T) {
+func TestAuthRequestUnmarshalJSONErrors(t *testing.T) {
 	tests := []struct {
 		name string
 		json string
