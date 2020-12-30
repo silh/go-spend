@@ -16,22 +16,30 @@ const (
 
 // Maps HTTP request to proper service. Validates parameters before passing them
 type Router struct {
-	userService   expenses.UserService
-	groupService  expenses.GroupService
+	mux http.Handler
+
 	authenticator authentication.Authenticator
-	mux           http.Handler
+	authorizer    authentication.Authorizer
+	groupService  expenses.GroupService
+	userService   expenses.UserService
 }
 
-// Create new router instance
 func NewRouter(
-	userService expenses.UserService,
-	groupService expenses.GroupService,
 	authenticator authentication.Authenticator,
+	authorizer authentication.Authorizer,
+	groupService expenses.GroupService,
+	userService expenses.UserService,
 ) *Router {
 	mux := http.NewServeMux()
-	r := &Router{userService: userService, groupService: groupService, authenticator: authenticator, mux: mux}
+	r := &Router{
+		mux:           mux,
+		authenticator: authenticator,
+		authorizer:    authorizer,
+		groupService:  groupService,
+		userService:   userService,
+	}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
-	mux.Handle("/groups", http.HandlerFunc(r.handleGroups))
+	mux.Handle("/groups", r.authorizer.Authorize(r.handleGroups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.handleAuthentication))
 	return r
 }

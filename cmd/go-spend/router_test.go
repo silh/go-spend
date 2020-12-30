@@ -51,15 +51,33 @@ func (m *mockGroupService) FindByID(_ context.Context, _ uint) (expenses.GroupRe
 	panic("implement me")
 }
 
+type mockAuthorizer struct {
+	mock.Mock
+}
+
+func (m *mockAuthorizer) Authorize(handlerFunc http.HandlerFunc) http.HandlerFunc {
+	return handlerFunc
+}
+
 func TestNewRouter(t *testing.T) {
-	router := main.NewRouter(new(mockUserService), new(mockGroupService), new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockGroupService),
+		new(mockUserService),
+	)
 	assert.NotNil(t, router)
 }
 
 func TestCreateUserWithProperParams(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockGroupService),
+		userService,
+	)
 
 	createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -86,7 +104,12 @@ func TestCreateUserWithProperParams(t *testing.T) {
 func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockGroupService),
+		userService,
+	)
 
 	createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -104,7 +127,12 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 func TestCreateUserWithIncorrectBody(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockGroupService),
+		userService,
+	)
 
 	createUserRequest := struct {
 		something int64
@@ -124,7 +152,12 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 func TestCreateUserWithEmptyFields(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockGroupService),
+		userService,
+	)
 
 	createUserRequest := struct {
 		something int64
@@ -163,7 +196,12 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+			router := main.NewRouter(
+				new(mockAuthenticator),
+				new(mockAuthorizer),
+				new(mockGroupService),
+				userService,
+			)
 			jsonBody, err := json.Marshal(&test.body)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
@@ -211,7 +249,12 @@ func TestCreateUserServiceError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
+			router := main.NewRouter(
+				new(mockAuthenticator),
+				new(mockAuthorizer),
+				new(mockGroupService),
+				userService,
+			)
 
 			createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 			jsonBody, err := json.Marshal(createUserRequest)
@@ -231,7 +274,12 @@ func TestCreateUserServiceError(t *testing.T) {
 func TestAuthenticateUser(t *testing.T) {
 	// given
 	authenticator := new(mockAuthenticator)
-	router := main.NewRouter(new(mockUserService), new(mockGroupService), authenticator)
+	router := main.NewRouter(
+		authenticator,
+		new(mockAuthorizer),
+		new(mockGroupService),
+		new(mockUserService),
+	)
 
 	authRequest := authentication.AuthRequest{
 		Email:    "mail@mail.com",
@@ -242,9 +290,9 @@ func TestAuthenticateUser(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/authenticate", bytes.NewBuffer(body))
 	recorder := httptest.NewRecorder()
 
-	expectedTokenResposne := authentication.TokenResponse{AccessToken: "asjkhdakj17", RefreshToken: "sakhadkj71"}
+	expectedTokenResponse := authentication.TokenResponse{AccessToken: "asjkhdakj17", RefreshToken: "sakhadkj71"}
 	authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
-		Return(expectedTokenResposne, nil)
+		Return(expectedTokenResponse, nil)
 
 	// when
 	router.ServeHTTP(recorder, req)
@@ -253,7 +301,7 @@ func TestAuthenticateUser(t *testing.T) {
 	assert.Equal(t, http.StatusOK, recorder.Code)
 	var response authentication.TokenResponse
 	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&response))
-	assert.Equal(t, expectedTokenResposne, response)
+	assert.Equal(t, expectedTokenResponse, response)
 }
 
 func TestAuthenticateFailed(t *testing.T) {
@@ -297,7 +345,12 @@ func TestAuthenticateFailed(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			authenticator := new(mockAuthenticator)
-			router := main.NewRouter(new(mockUserService), new(mockGroupService), authenticator)
+			router := main.NewRouter(
+				authenticator,
+				new(mockAuthorizer),
+				new(mockGroupService),
+				new(mockUserService),
+			)
 			body, err := json.Marshal(&authRequest)
 			require.NoError(t, err)
 			req := httptest.NewRequest(test.method, "/authenticate", bytes.NewBuffer(body))
@@ -316,7 +369,12 @@ func TestAuthenticateFailed(t *testing.T) {
 func TestCreateGroup(t *testing.T) {
 	// given
 	groupService := new(mockGroupService)
-	router := main.NewRouter(new(mockUserService), groupService, new(mockAuthenticator))
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		groupService,
+		new(mockUserService),
+	)
 
 	groupRequest := expenses.CreateGroupRequest{
 		Name:      "someName",
@@ -408,7 +466,12 @@ func TestCreateGroupErrors(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			groupService := new(mockGroupService)
-			router := main.NewRouter(new(mockUserService), groupService, new(mockAuthenticator))
+			router := main.NewRouter(
+				new(mockAuthenticator),
+				new(mockAuthorizer),
+				groupService,
+				new(mockUserService),
+			)
 
 			test.prepareMock(groupService)
 
