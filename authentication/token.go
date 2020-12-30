@@ -6,6 +6,15 @@ import (
 	"time"
 )
 
+const (
+	// claims
+	accessUUIDClaim  = "access_uuid"
+	refreshUUIDClaim = "refresh_uuid"
+	userIDClaim      = "user_id"
+	groupIDClaim     = "group_id"
+	expClaim         = "exp"
+)
+
 // TokenResponse is a struct to map token values to JSON
 type TokenResponse struct {
 	AccessToken  string `json:"accessToken"`
@@ -63,10 +72,10 @@ func (t *TokenCreator) createAccessToken(userID uint, groupID uint) (Token, erro
 	}
 	token.UUID = newUUID.String()
 	atClaims := jwt.NewClaims()
-	atClaims["access_uuid"] = token.UUID
-	atClaims["user_id"] = userID
-	atClaims["group_id"] = groupID
-	atClaims["exp"] = token.ExpiresAt
+	atClaims[accessUUIDClaim] = token.UUID
+	atClaims[userIDClaim] = userID
+	atClaims[groupIDClaim] = groupID
+	atClaims[expClaim] = token.ExpiresAt
 	token.Encoded, err = t.accessAlgorithm.Encode(atClaims)
 	if err != nil {
 		return Token{}, err
@@ -83,10 +92,10 @@ func (t *TokenCreator) createRefreshToken(userID uint, groupID uint) (Token, err
 	}
 	token.UUID = newUUID.String()
 	claims := jwt.NewClaims()
-	claims["refresh_uuid"] = token.UUID
-	claims["user_id"] = userID
-	claims["group_id"] = groupID
-	claims["exp"] = token.ExpiresAt
+	claims[refreshUUIDClaim] = token.UUID
+	claims[userIDClaim] = userID
+	claims[groupIDClaim] = groupID
+	claims[expClaim] = token.ExpiresAt
 	token.Encoded, err = t.accessAlgorithm.Encode(claims)
 	if err != nil {
 		return Token{}, err

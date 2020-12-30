@@ -12,7 +12,7 @@ type TokenSaver interface {
 
 // TokenRetriever retrieves UserContext for provided token if present
 type TokenRetriever interface {
-	Retrieve(token Token) (UserContext, error)
+	Retrieve(uuid string) (UserContext, error)
 }
 
 // Combines capabilities to store and retrieve values from the storage
@@ -49,8 +49,8 @@ func (r *RedisTokenRepository) Save(pair TokenPair, userContext UserContext) err
 	return r.redis.Set(pair.RefreshToken.UUID, userContext.Value(), refreshDuration).Err()
 }
 
-func (r *RedisTokenRepository) Retrieve(token Token) (UserContext, error) {
-	value, err := r.redis.Get(token.UUID).Result()
+func (r *RedisTokenRepository) Retrieve(uuid string) (UserContext, error) {
+	value, err := r.redis.Get(uuid).Result()
 	if err != nil {
 		return UserContext{}, err
 	}

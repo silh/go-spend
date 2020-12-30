@@ -36,9 +36,12 @@ func TestRedisTokenRepositorySaveRetrieve(t *testing.T) {
 
 	// when and then
 	require.NoError(t, tokenRepository.Save(tokenPair, userContext))
-	accessContext, err := tokenRepository.Retrieve(tokenPair.AccessToken)
+	accessContext, err := tokenRepository.Retrieve(tokenPair.AccessToken.UUID)
 	require.NoError(t, err)
 	assert.Equal(t, userContext, accessContext)
+	refreshContext, err := tokenRepository.Retrieve(tokenPair.RefreshToken.UUID)
+	require.NoError(t, err)
+	assert.Equal(t, refreshContext, refreshContext)
 }
 
 // Due to the nature of redis methods return type only simple test is present.
