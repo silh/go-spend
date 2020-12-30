@@ -36,14 +36,14 @@ func NewDefaultGroupService(
 func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error) {
 	id := request.CreatorID
 	tx, err := d.db.Begin(ctx)
+	if err != nil {
+		return GroupResponse{}, err
+	}
 	defer func() {
 		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
 			log.Error("failed to rollback transaction - %s", err.Error())
 		}
 	}() // safe to do so even after commit according to docs
-	if err != nil {
-		return GroupResponse{}, err
-	}
 	creator, err := d.userRepository.FindById(ctx, tx, id)
 	if err != nil {
 		return GroupResponse{}, err

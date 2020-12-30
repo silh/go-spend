@@ -18,6 +18,14 @@ func TestCreateUserRequestUnmarshalJSON(t *testing.T) {
 	assert.Equal(t, expenses.Password("anewpassword"), req.Password)
 }
 
+func TestCreateUserRequestUnmarshalJSONNull(t *testing.T) {
+	createJSON := `null`
+	var req expenses.CreateUserRequest
+	err := json.Unmarshal([]byte(createJSON), &req)
+	require.NoError(t, err)
+	assert.Zero(t, err)
+}
+
 func TestCreateUserRequestUnmarshalJSONErrors(t *testing.T) {
 	tests := []struct {
 		name string

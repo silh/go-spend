@@ -79,22 +79,27 @@ func cleanUpDB(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 }
 
-type MockTxQuerier struct {
+type mockTxQuerier struct {
 	mock.Mock
 }
 
-func (m *MockTxQuerier) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
+func (m *mockTxQuerier) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
+func (m *mockTxQuerier) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
+func (m *mockTxQuerier) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
 	panic("implement me")
 }
 
-func (m *MockTxQuerier) Begin(_ context.Context) (pgx.Tx, error) {
-	panic("implement me")
+func (m *mockTxQuerier) Begin(ctx context.Context) (pgx.Tx, error) {
+	args := m.Called(ctx)
+	firstArg := args.Get(0)
+	if firstArg == nil {
+		return nil, args.Error(1)
+	}
+	return firstArg.(pgx.Tx), args.Error(1)
 }

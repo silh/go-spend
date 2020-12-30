@@ -15,11 +15,11 @@ const (
 	validEmail = "email@mail.com"
 )
 
-type MockUserRepository struct {
+type mockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(
+func (m *mockUserRepository) Create(
 	ctx context.Context,
 	db pgxtype.Querier,
 	request expenses.CreateUserRequest,
@@ -28,22 +28,23 @@ func (m *MockUserRepository) Create(
 	return args.Get(0).(expenses.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FindById(_ context.Context, _ pgxtype.Querier, _ uint) (expenses.User, error) {
-	panic("implement me")
+func (m *mockUserRepository) FindById(ctx context.Context, db pgxtype.Querier, id uint) (expenses.User, error) {
+	args := m.Called(ctx, db, id)
+	return args.Get(0).(expenses.User), args.Error(1)
 }
 
-func (m *MockUserRepository) FindByEmail(_ context.Context, _ pgxtype.Querier, _ expenses.Email) (expenses.User, error) {
+func (m *mockUserRepository) FindByEmail(_ context.Context, _ pgxtype.Querier, _ expenses.Email) (expenses.User, error) {
 	panic("implement me")
 }
 
 func TestNewDefaultUserService(t *testing.T) {
-	service := expenses.NewDefaultUserService(new(MockTxQuerier), new(MockUserRepository))
+	service := expenses.NewDefaultUserService(new(mockTxQuerier), new(mockUserRepository))
 	assert.NotNil(t, service)
 }
 
 func TestDefaultUserServiceCreate(t *testing.T) {
-	mockRepo := new(MockUserRepository)
-	db := new(MockTxQuerier)
+	mockRepo := new(mockUserRepository)
+	db := new(mockTxQuerier)
 	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()
@@ -59,8 +60,8 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 }
 
 func TestDefaultUserServiceCreateError(t *testing.T) {
-	mockRepo := new(MockUserRepository)
-	db := new(MockTxQuerier)
+	mockRepo := new(mockUserRepository)
+	db := new(mockTxQuerier)
 	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()

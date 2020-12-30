@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go-spend/authentication"
+	"go-spend/authentication/jwt"
 	"go-spend/cmd/go-spend"
 	"go-spend/expenses"
 	"net/http"
@@ -57,6 +58,15 @@ type mockAuthorizer struct {
 
 func (m *mockAuthorizer) Authorize(handlerFunc http.HandlerFunc) http.HandlerFunc {
 	return handlerFunc
+}
+
+type mockTokenRetriever struct {
+	mock.Mock
+}
+
+func (m *mockTokenRetriever) Retrieve(uuid string) (authentication.UserContext, error) {
+	args := m.Called(uuid)
+	return args.Get(0).(authentication.UserContext), args.Error(1)
 }
 
 func TestNewRouter(t *testing.T) {
@@ -487,4 +497,97 @@ func TestCreateGroupErrors(t *testing.T) {
 			assert.Equal(t, test.expectedCode, recorder.Code)
 		})
 	}
+}
+
+func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		authentication.NewJWTAuthorizer(jwt.HmacSha256("key"), new(mockTokenRetriever)),
+		groupService,
+		new(mockUserService),
+	)
+
+	groupRequest := expenses.CreateGroupRequest{
+		Name:      "someName",
+		CreatorID: 1,
+	}
+	expectedGroupResponse := expenses.GroupResponse{
+		ID:   1,
+		Name: groupRequest.Name,
+		Users: []expenses.UserResponse{
+			{
+				ID:    1,
+				Email: "some@mail.com",
+			},
+		},
+	}
+	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
+
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestCreateGroupWithAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	tokenRetriever := new(mockTokenRetriever)
+	alg := jwt.HmacSha256("key")
+	tokenUUID, validJWT := prepareValidJWT(t, alg)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		authentication.NewJWTAuthorizer(alg, tokenRetriever),
+		groupService,
+		new(mockUserService),
+	)
+
+	groupRequest := expenses.CreateGroupRequest{
+		Name:      "someName",
+		CreatorID: 1,
+	}
+	expectedGroupResponse := expenses.GroupResponse{
+		ID:   1,
+		Name: groupRequest.Name,
+		Users: []expenses.UserResponse{
+			{
+				ID:    1,
+				Email: "some@mail.com",
+			},
+		},
+	}
+	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
+	tokenRetriever.On("Retrieve", tokenUUID).Return(authentication.UserContext{}, nil)
+
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	req.Header.Set("Authorization", "Bearer "+validJWT)
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusCreated, recorder.Code)
+	var createdGroup expenses.GroupResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&createdGroup))
+	assert.Equal(t, expectedGroupResponse, createdGroup)
+}
+
+func prepareValidJWT(t *testing.T, accessAlg *jwt.Algorithm) (string, string) {
+	claims := jwt.NewClaims()
+	accessUUID := "uuid-id"
+	claims["access_uuid"] = accessUUID
+	accessJWT, err := accessAlg.Encode(claims)
+	require.NoError(t, err)
+	return accessUUID, accessJWT
 }

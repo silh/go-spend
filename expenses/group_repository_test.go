@@ -119,3 +119,62 @@ func TestFindWithUsersByID(t *testing.T) {
 	require.Equal(t, 1, len(found.Users))
 	assert.Equal(t, expectedUser, found.Users[0])
 }
+
+func TestAddUserToGroupTwice(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	userRepository := expenses.NewPgUserRepository()
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group
+	user, err := userRepository.Create(ctx, pgdb, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	require.NoError(t, err)
+	groupName := util.NonEmptyString("myGroup")
+	group, err := groupRepository.Create(ctx, pgdb, groupName)
+	require.NoError(t, err)
+
+	err = groupRepository.AddUserToGroup(ctx, pgdb, user.ID, group.ID)
+	require.NoError(t, err)
+	err = groupRepository.AddUserToGroup(ctx, pgdb, user.ID, group.ID)
+	require.Error(t, err)
+}
+
+func TestAddUserToTwoGroups(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	userRepository := expenses.NewPgUserRepository()
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group
+	user, err := userRepository.Create(ctx, pgdb, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	require.NoError(t, err)
+	groupName := util.NonEmptyString("myGroup")
+	groupName2 := util.NonEmptyString("myGroup2")
+	group, err := groupRepository.Create(ctx, pgdb, groupName)
+	group2, err := groupRepository.Create(ctx, pgdb, groupName2)
+	require.NoError(t, err)
+
+	err = groupRepository.AddUserToGroup(ctx, pgdb, user.ID, group.ID)
+	require.NoError(t, err)
+	err = groupRepository.AddUserToGroup(ctx, pgdb, user.ID, group2.ID)
+}
+
+func TestFindGroupByUserIDNotFound(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	userRepository := expenses.NewPgUserRepository()
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group, add user to group
+	user, err := userRepository.Create(ctx, pgdb, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	require.NoError(t, err)
+	groupName := util.NonEmptyString("myGroup")
+	_, err = groupRepository.Create(ctx, pgdb, groupName)
+	require.NoError(t, err)
+
+	_, err = groupRepository.FindByUserID(ctx, pgdb, user.ID)
+	assert.EqualError(t, err, expenses.ErrGroupNotFound.Error())
+}
