@@ -84,12 +84,34 @@ func (router *Router) handleGroups(w http.ResponseWriter, r *http.Request) {
 
 func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 	var createGroupRequest expenses.CreateGroupRequest
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&createGroupRequest); err != nil {
+	var err error
+	if err = json.NewDecoder(r.Body).Decode(&createGroupRequest); err != nil {
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
-	//create, err := router.groupService.Create(r.Context(), createGroupRequest)
+	createdGroup, err := router.groupService.Create(r.Context(), createGroupRequest)
+	if err == expenses.ErrUserNotFound {
+		http.Error(w, "User doesn't exists", http.StatusBadRequest)
+		return
+	}
+	if err == expenses.ErrNameAlreadyExists {
+		http.Error(w, "Group with such name already exists", http.StatusBadRequest)
+		return
+	}
+	if err == expenses.ErrUserIsInAnotherGroup {
+		http.Error(w, "User participates in another group", http.StatusBadRequest)
+		return
+	}
+	if err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't create group %s by user %d", createGroupRequest.Name, createGroupRequest.CreatorID)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	if err = json.NewEncoder(w).Encode(createdGroup); err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't write response after group %s creation - %s", err)
+	}
 }
 
 func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Request) {
@@ -115,7 +137,7 @@ func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err = json.NewEncoder(w).Encode(&tokenResponse); err != nil {
-		log.Error("could not write body of auth response - %s", err)
+		log.Error("couldn't write body of auth response - %s", err)
 		http.Error(w, ServerError, http.StatusInternalServerError)
 	}
 }

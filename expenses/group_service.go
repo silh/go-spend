@@ -29,6 +29,7 @@ func NewDefaultGroupService(
 	return &DefaultGroupService{db: db, userRepository: userRepository, groupRepository: groupRepository}
 }
 
+// Create creates a group and assigns group creator to that group.
 func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error) {
 	id := request.CreatorID
 	tx, err := d.db.Begin(ctx)
