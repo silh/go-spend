@@ -3,7 +3,6 @@ package authentication_test
 import (
 	"github.com/go-redis/redis"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go-spend/authentication"
 	"testing"
@@ -66,17 +65,4 @@ func TestRedisTokenRepositorySaveErrors(t *testing.T) {
 		},
 	}
 	require.Error(t, tokenRepository.Save(tokenPair, userContext))
-}
-
-type mockRedisClient struct {
-	mock.Mock
-}
-
-func (m *mockRedisClient) Set(key string, value interface{}, expiration time.Duration) *redis.StatusCmd {
-	args := m.Called(key, value, expiration)
-	return args.Get(0).(*redis.StatusCmd)
-}
-
-func (*mockRedisClient) Get(key string) *redis.StringCmd {
-	panic("implement me")
 }

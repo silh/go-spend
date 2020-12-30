@@ -43,20 +43,29 @@ type mockQuerier struct {
 	mock.Mock
 }
 
-func (m *mockQuerier) Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error) {
+func (m *mockQuerier) Exec(_ context.Context, _ string, _ ...interface{}) (pgconn.CommandTag, error) {
 	panic("implement me")
 }
 
-func (m *mockQuerier) Query(ctx context.Context, sql string, optionsAndArgs ...interface{}) (pgx.Rows, error) {
+func (m *mockQuerier) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
 	panic("implement me")
 }
 
-func (m *mockQuerier) QueryRow(ctx context.Context, sql string, optionsAndArgs ...interface{}) pgx.Row {
+func (m *mockQuerier) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
 	panic("implement me")
 }
 
-func (m *mockQuerier) Begin(ctx context.Context) (pgx.Tx, error) {
+func (m *mockQuerier) Begin(_ context.Context) (pgx.Tx, error) {
 	panic("implement me")
+}
+
+type mockTokeSaver struct {
+	mock.Mock
+}
+
+func (m *mockTokeSaver) Save(pair authentication.TokenPair, userContext authentication.UserContext) error {
+	args := m.Called(pair, userContext)
+	return args.Error(0)
 }
 
 var (
@@ -65,24 +74,41 @@ var (
 )
 
 func TestNewAuthService(t *testing.T) {
-	auth := authentication.NewAuthService(testTokenCreator, new(mockUserRepository), new(mockQuerier), simplePasswordChecker)
+	auth := authentication.NewAuthService(
+		new(mockQuerier),
+		testTokenCreator,
+		new(mockTokeSaver),
+		simplePasswordChecker,
+		new(mockUserRepository),
+	)
 	require.NotNil(t, auth)
 }
 
-func TestAuthReturnsTokensWhenCredAreCorrect(t *testing.T) {
+func TestAuthReturnsTokensWhenCredsAreCorrect(t *testing.T) {
 	ctx := context.Background()
 	userRepository := new(mockUserRepository)
 	mockDB := new(mockQuerier)
-	auth := authentication.NewAuthService(testTokenCreator, userRepository, mockDB, simplePasswordChecker)
+	mockSaver := new(mockTokeSaver)
+	auth := authentication.NewAuthService(
+		mockDB,
+		testTokenCreator,
+		mockSaver,
+		simplePasswordChecker,
+		userRepository,
+	)
 
 	// given
 	email := expenses.Email("some@mail.com")
 	password := expenses.Password("password")
-	userRepository.On("FindByEmail", ctx, mockDB, email).
-		Return(expenses.User{ID: 1, Email: email, Password: password}, nil)
+	user := expenses.User{ID: 1, Email: email, Password: password}
+	userRepository.On("FindByEmail", ctx, mockDB, email).Return(user, nil)
+	mockSaver.On("Save", mock.Anything, authentication.UserContext{UserID: user.ID, GroupID: user.GroupID}).
+		Return(nil)
 
 	// when
 	tokens, err := auth.Authenticate(ctx, email, password)
+
+	// then
 	require.NoError(t, err)
 	require.NotZero(t, tokens)
 }
@@ -91,7 +117,14 @@ func TestAuthReturnsErrorIfFailedToFindTheUser(t *testing.T) {
 	ctx := context.Background()
 	userRepository := new(mockUserRepository)
 	mockDB := new(mockQuerier)
-	auth := authentication.NewAuthService(testTokenCreator, userRepository, mockDB, simplePasswordChecker)
+	mockSaver := new(mockTokeSaver)
+	auth := authentication.NewAuthService(
+		mockDB,
+		testTokenCreator,
+		mockSaver,
+		simplePasswordChecker,
+		userRepository,
+	)
 
 	// given
 	email := expenses.Email("some@mail.com")
@@ -109,7 +142,14 @@ func TestAuthReturnsErrEmailOrPasswordIncorrectIfUserNotFound(t *testing.T) {
 	ctx := context.Background()
 	userRepository := new(mockUserRepository)
 	mockDB := new(mockQuerier)
-	auth := authentication.NewAuthService(testTokenCreator, userRepository, mockDB, simplePasswordChecker)
+	mockSaver := new(mockTokeSaver)
+	auth := authentication.NewAuthService(
+		mockDB,
+		testTokenCreator,
+		mockSaver,
+		simplePasswordChecker,
+		userRepository,
+	)
 
 	// given
 	email := expenses.Email("some@mail.com")
@@ -127,7 +167,14 @@ func TestAuthReturnsErrEmailOrPasswordIncorrectIfPasswordIsIncorrect(t *testing.
 	ctx := context.Background()
 	userRepository := new(mockUserRepository)
 	mockDB := new(mockQuerier)
-	auth := authentication.NewAuthService(testTokenCreator, userRepository, mockDB, simplePasswordChecker)
+	mockSaver := new(mockTokeSaver)
+	auth := authentication.NewAuthService(
+		mockDB,
+		testTokenCreator,
+		mockSaver,
+		simplePasswordChecker,
+		userRepository,
+	)
 
 	// given
 	email := expenses.Email("some@mail.com")
@@ -139,4 +186,32 @@ func TestAuthReturnsErrEmailOrPasswordIncorrectIfPasswordIsIncorrect(t *testing.
 	tokens, err := auth.Authenticate(ctx, email, password)
 	require.EqualError(t, err, authentication.ErrEmailOrPasswordIncorrect.Error())
 	require.Zero(t, tokens)
+}
+
+func TestAuthReturnsErrWhenTokenSavingFails(t *testing.T) {
+	ctx := context.Background()
+	userRepository := new(mockUserRepository)
+	mockDB := new(mockQuerier)
+	mockSaver := new(mockTokeSaver)
+	auth := authentication.NewAuthService(
+		mockDB,
+		testTokenCreator,
+		mockSaver,
+		simplePasswordChecker,
+		userRepository,
+	)
+
+	// given
+	email := expenses.Email("some@mail.com")
+	password := expenses.Password("password")
+	user := expenses.User{ID: 1, Email: email, Password: password}
+	userRepository.On("FindByEmail", ctx, mockDB, email).Return(user, nil)
+	mockSaver.On("Save", mock.Anything, authentication.UserContext{UserID: user.ID, GroupID: user.GroupID}).
+		Return(errors.New("expected"))
+
+	// when
+	_, err := auth.Authenticate(ctx, email, password)
+
+	// then
+	require.Error(t, err)
 }

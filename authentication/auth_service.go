@@ -22,23 +22,27 @@ type Authenticator interface {
 
 // AuthService is a default implementation of Authenticator
 type AuthService struct {
-	tokenCreator    *TokenCreator
-	userRepository  expenses.UserRepository
 	db              db.TxQuerier
+	tokenCreator    *TokenCreator
+	tokenSaver      TokenSaver
 	passwordChecker PasswordChecker
+	userRepository  expenses.UserRepository
 }
 
+// NewAuthService creates new service to authenticate users and store their tokens for future calls
 func NewAuthService(
-	tokenCreator *TokenCreator,
-	userRepository expenses.UserRepository,
 	db db.TxQuerier,
+	tokenCreator *TokenCreator,
+	tokenSaver TokenSaver,
 	passwordChecker PasswordChecker,
+	userRepository expenses.UserRepository,
 ) *AuthService {
 	return &AuthService{
-		tokenCreator:    tokenCreator,
-		userRepository:  userRepository,
 		db:              db,
+		tokenCreator:    tokenCreator,
+		tokenSaver:      tokenSaver,
 		passwordChecker: passwordChecker,
+		userRepository:  userRepository,
 	}
 }
 
@@ -61,6 +65,9 @@ func (a *AuthService) Authenticate(
 	}
 	tokenPair, err := a.tokenCreator.CreateTokenPair(user.ID, user.GroupID)
 	if err != nil {
+		return TokenResponse{}, err
+	}
+	if err = a.tokenSaver.Save(tokenPair, UserContext{UserID: user.ID, GroupID: user.GroupID}); err != nil {
 		return TokenResponse{}, err
 	}
 	return TokenResponse{
