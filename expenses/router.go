@@ -20,7 +20,7 @@ type Router struct {
 // Create new router instance
 func NewRouter(userService UserService, groupService GroupService) *Router {
 	mux := http.NewServeMux()
-	r := &Router{userService: userService, mux: mux}
+	r := &Router{userService: userService, groupService: groupService, mux: mux}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
 	mux.Handle("/groups", http.HandlerFunc(r.handleGroups))
 	return r

@@ -2,7 +2,6 @@ package expenses_test
 
 import (
 	"context"
-	"github.com/docker/go-connections/nat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go-spend/expenses"
@@ -10,24 +9,12 @@ import (
 	"testing"
 )
 
-const (
-	pgImage    = "postgres:13.1"
-	pgUser     = "user"
-	pgPassword = "password"
-	pgDb       = "expenses"
-	pgPort     = nat.Port("5432/tcp")
-
-	deleteAllUsersQuery = "DELETE FROM users"
-)
-
-var pgDB = createContainerAndGetDbUrl(context.Background())
-
 func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
 	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
-	created, err := expenses.NewPgUserRepository().Create(ctx, pgDB, user)
+	created, err := expenses.NewPgUserRepository().Create(ctx, PGDB, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
 }
@@ -38,8 +25,8 @@ func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
 
 	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
 	repository := expenses.NewPgUserRepository()
-	_, _ = repository.Create(ctx, pgDB, user)
-	created2, err := repository.Create(ctx, pgDB, user)
+	_, _ = repository.Create(ctx, PGDB, user)
+	created2, err := repository.Create(ctx, PGDB, user)
 	assert.Zero(t, created2)
 	assert.EqualError(t, err, expenses.ErrEmailAlreadyExists.Error())
 }
@@ -51,7 +38,7 @@ func TestCantStoreTooLongEmail(t *testing.T) {
 
 	user := expenses.CreateUserContext{Email: createLongEmail(), Password: "password"}
 	repository := expenses.NewPgUserRepository()
-	created, err := repository.Create(ctx, pgDB, user)
+	created, err := repository.Create(ctx, PGDB, user)
 	assert.Zero(t, created)
 	assert.Error(t, err)
 }
@@ -63,10 +50,10 @@ func TestFindById(t *testing.T) {
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
 	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
-	created, err := repository.Create(ctx, pgDB, user)
+	created, err := repository.Create(ctx, PGDB, user)
 	require.NoError(t, err)
 
-	foundUser, err := repository.FindById(ctx, pgDB, created.ID)
+	foundUser, err := repository.FindById(ctx, PGDB, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, created, foundUser)
 }
@@ -75,9 +62,33 @@ func TestFindByIdNonExistentUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
+	repository := expenses.NewPgUserRepository()
+	foundUser, err := repository.FindById(ctx, PGDB, 1)
+	assert.EqualError(t, err, expenses.ErrUserNotFound.Error())
+	assert.Zero(t, foundUser)
+}
+
+func TestFindByEmail(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
-	foundUser, err := repository.FindById(ctx, pgDB, 1)
+	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
+	created, err := repository.Create(ctx, PGDB, user)
+	require.NoError(t, err)
+
+	foundUser, err := repository.FindByEmail(ctx, PGDB, created.Email)
+	require.NoError(t, err)
+	assert.Equal(t, created, foundUser)
+}
+
+func TestFindByEmailNonExistentUser(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	repository := expenses.NewPgUserRepository()
+	foundUser, err := repository.FindByEmail(ctx, PGDB, "email@mail.com")
 	assert.EqualError(t, err, expenses.ErrUserNotFound.Error())
 	assert.Zero(t, foundUser)
 }

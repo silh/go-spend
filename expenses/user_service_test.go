@@ -28,6 +28,10 @@ func (m *MockUserRepository) FindById(_ context.Context, _ pgxtype.Querier, _ ui
 	panic("implement me")
 }
 
+func (m *MockUserRepository) FindByEmail(_ context.Context, _ pgxtype.Querier, _ expenses.Email) (expenses.User, error) {
+	panic("implement me")
+}
+
 func TestNewDefaultUserService(t *testing.T) {
 	service := expenses.NewDefaultUserService(new(MockTxQuerier), new(MockUserRepository))
 	assert.NotNil(t, service)

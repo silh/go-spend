@@ -34,7 +34,7 @@ func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupReq
 	tx, err := d.db.Begin(ctx)
 	defer func() {
 		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			log.Error("failed to rollback transaction - %s", err.Error()) // TODO check for already committed transaction.
+			log.Error("failed to rollback transaction - %s", err.Error())
 		}
 	}() // safe to do so even after commit according to docs
 	if err != nil {

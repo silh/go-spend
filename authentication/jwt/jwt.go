@@ -16,8 +16,10 @@ type Claims map[string]interface{}
 
 // NewClaims returns a new map representing the claims.
 func NewClaims() Claims {
-	claimsMap := Claims(make(map[string]interface{}))
-	return claimsMap
+	claims := Claims(make(map[string]interface{}))
+	claims.SetTime("iat", time.Now())
+	claims["iis"] = "go-spend" // fo simplification
+	return claims
 }
 
 // SetTime sets the claim given to the specified time.

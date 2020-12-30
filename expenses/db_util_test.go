@@ -3,6 +3,7 @@ package expenses_test
 import (
 	"context"
 	"fmt"
+	"github.com/docker/go-connections/nat"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -14,8 +15,21 @@ import (
 	"testing"
 )
 
+const (
+	pgImage    = "postgres:13.1"
+	pgUser     = "user"
+	pgPassword = "password"
+	pgDb       = "expenses"
+	pgPort     = nat.Port("5432/tcp")
+
+	deleteAllUsersQuery  = "DELETE FROM users"
+	deleteAllGroupsQuery = "DELETE FROM groups"
+)
+
+var PGDB = CreateContainerAndGetDbUrl(context.Background())
+
 // Creates PG container, applies necessary schema. If there is any error - it will panic
-func createContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
+func CreateContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
 	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        pgImage,
@@ -59,9 +73,9 @@ func createContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
 }
 
 func cleanUpDB(t *testing.T, ctx context.Context) {
-	_, err := pgDB.Exec(ctx, deleteAllGroupsQuery)
+	_, err := PGDB.Exec(ctx, deleteAllGroupsQuery)
 	require.NoError(t, err)
-	_, err = pgDB.Exec(ctx, deleteAllUsersQuery)
+	_, err = PGDB.Exec(ctx, deleteAllUsersQuery)
 	require.NoError(t, err)
 }
 

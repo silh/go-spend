@@ -1,17 +1,19 @@
-create table if not exists users
+CREATE TABLE IF NOT EXISTS users
 (
     id       BIGSERIAL PRIMARY KEY,
-    email    varchar(320) NOT NULL UNIQUE,
-    password varchar(200) NOT NULL
+    email    VARCHAR(320) NOT NULL UNIQUE,
+    password VARCHAR(200) NOT NULL
 );
 
-create table if not exists groups
+CREATE UNIQUE INDEX IF NOT EXISTS users_emails_idx on users (email);
+
+CREATE TABLE IF NOT EXISTS groups
 (
     id   BIGSERIAL PRIMARY KEY,
-    name varchar(100) NOT NULL UNIQUE
+    name VARCHAR(100) NOT NULL UNIQUE
 );
 
-create table if not exists users_groups
+CREATE TABLE IF NOT EXISTS users_groups
 (
     user_id  BIGINT NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
     group_id BIGINT NOT NULL REFERENCES groups (id) ON DELETE CASCADE

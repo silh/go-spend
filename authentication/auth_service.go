@@ -1,67 +1,121 @@
 package authentication
 
 import (
+	"context"
+	"errors"
 	"github.com/gofrs/uuid"
 	"go-spend/authentication/jwt"
+	"go-spend/db"
 	"go-spend/expenses"
-	"go-spend/util"
 	"time"
+)
+
+var (
+	ErrEmailOrPasswordIncorrect = errors.New("email or password incorrect")
 )
 
 // Performs user authentication
 type AuthService interface {
-	Authenticate(name util.NonEmptyString, password expenses.Password)
+	Authenticate(email expenses.Email, password expenses.Password) error
 }
 
 type DefaultAuthService struct {
-	accessSecret  string
-	refreshSecret string
+	accessAlgorithm  *jwt.Algorithm
+	refreshAlgorithm *jwt.Algorithm
+	userRepository   expenses.UserRepository
+	db               db.TxQuerier
+	passwordChecker  PasswordChecker
 }
 
-type TokenInfo struct {
-	AccessToken  string
-	RefreshToken string
-	AccessUUID   string
-	RefreshUUID  string
-	AtExpires    int64
-	RtExpires    int64
+func NewDefaultAuthService(
+	accessAlgorithm *jwt.Algorithm,
+	refreshAlgorithm *jwt.Algorithm,
+	userRepository expenses.UserRepository,
+	db db.TxQuerier,
+	passwordChecker PasswordChecker,
+) *DefaultAuthService {
+	return &DefaultAuthService{
+		accessAlgorithm:  accessAlgorithm,
+		refreshAlgorithm: refreshAlgorithm,
+		userRepository:   userRepository,
+		db:               db,
+		passwordChecker:  passwordChecker,
+	}
 }
 
-func (a *DefaultAuthService) CreateToken(userid uint64) (TokenInfo, error) {
-	td := TokenInfo{}
-	td.AtExpires = time.Now().Add(time.Minute * 15).Unix()
-	accessUUID, err := uuid.NewV4()
+func (a *DefaultAuthService) Authenticate(ctx context.Context, email expenses.Email, password expenses.Password) error {
+	user, err := a.userRepository.FindByEmail(ctx, a.db, email)
 	if err != nil {
-		return TokenInfo{}, err
+		return err
 	}
-	td.AccessUUID = accessUUID.String()
-	td.RtExpires = time.Now().Add(time.Hour * 24 * 7).Unix()
-	refreshUUID, err := uuid.NewV4()
-	if err != nil {
-		return TokenInfo{}, err
+	if ok := a.passwordChecker.Check(string(user.Password), string(password)); !ok {
+		return ErrEmailOrPasswordIncorrect
 	}
-	td.RefreshUUID = refreshUUID.String()
+	//a.createAccessToken(user.ID, )
+	return nil
+}
 
-	//Creating Access Token
+// TokenPair contains info about both access and refresh tokens
+type TokenPair struct {
+	AccessToken  Token
+	RefreshToken Token
+}
+
+// Token contains information about either access or refresh token
+type Token struct {
+	Encoded   string
+	UUID      string
+	ExpiresAt int64
+}
+
+func (a *DefaultAuthService) CreateTokenPair(userID uint, groupID uint) (TokenPair, error) {
+	token, err := a.createAccessToken(userID, groupID)
+	if err != nil {
+		return TokenPair{}, nil
+	}
+	refreshToken, err := a.createRefreshToken(userID, groupID)
+	return TokenPair{
+		AccessToken:  token,
+		RefreshToken: refreshToken,
+	}, nil
+}
+
+func (a *DefaultAuthService) createAccessToken(userID uint, groupID uint) (Token, error) {
+	token := Token{}
+	token.ExpiresAt = time.Now().Add(time.Minute * 15).Unix()
+	newUUID, err := uuid.NewV4()
+	if err != nil {
+		return Token{}, err
+	}
+	token.UUID = newUUID.String()
 	atClaims := jwt.NewClaims()
-	atClaims["authorized"] = true
-	atClaims["access_uuid"] = td.AccessUUID
-	atClaims["user_id"] = userid
-	atClaims["exp"] = td.AtExpires
-	algorithm := jwt.HmacSha256(a.accessSecret) // TODO create just once
-	td.AccessToken, err = algorithm.Encode(atClaims)
+	atClaims["access_uuid"] = token.UUID
+	atClaims["user_id"] = userID
+	atClaims["group_id"] = groupID
+	atClaims["exp"] = token.ExpiresAt
+	token.Encoded, err = a.accessAlgorithm.Encode(atClaims)
 	if err != nil {
-		return TokenInfo{}, err
+		return Token{}, err
 	}
-	//Creating Refresh Token
-	rtClaims := jwt.NewClaims()
-	rtClaims["refresh_uuid"] = td.RefreshUUID
-	rtClaims["user_id"] = userid
-	rtClaims["exp"] = td.RtExpires
-	rtAlg := jwt.HmacSha256(a.refreshSecret)
-	td.RefreshToken, err = rtAlg.Encode(rtClaims)
+	return token, nil
+}
+
+func (a *DefaultAuthService) createRefreshToken(userID uint, groupID uint) (Token, error) {
+	token := Token{}
+	token.ExpiresAt = time.Now().Add(time.Minute * 15).Unix()
+	newUUID, err := uuid.NewV4()
 	if err != nil {
-		return TokenInfo{}, err
+		return Token{}, err
 	}
-	return td, nil
+	token.UUID = newUUID.String()
+	claims := jwt.NewClaims()
+	claims["refresh_uuid"] = token.UUID
+	claims["user_id"] = userID
+	claims["group_id"] = groupID
+	claims["exp"] = token.ExpiresAt
+	token.Encoded, err = a.accessAlgorithm.Encode(claims)
+	if err != nil {
+		return Token{}, err
+	}
+	return token, nil
 }

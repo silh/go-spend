@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewDefaultGroupService(t *testing.T) {
-	groupService := expenses.NewDefaultGroupService(pgDB, expenses.NewPgUserRepository(), expenses.NewPgGroupRepository())
+	groupService := expenses.NewDefaultGroupService(PGDB, expenses.NewPgUserRepository(), expenses.NewPgGroupRepository())
 	require.NotNil(t, groupService)
 }
 
@@ -19,10 +19,10 @@ func TestCreateGroupWithCreator(t *testing.T) {
 	ctx := context.Background()
 
 	userRepository := expenses.NewPgUserRepository()
-	groupService := expenses.NewDefaultGroupService(pgDB, userRepository, expenses.NewPgGroupRepository())
+	groupService := expenses.NewDefaultGroupService(PGDB, userRepository, expenses.NewPgGroupRepository())
 
 	// Create a user so that it can create a group
-	user, err := userRepository.Create(ctx, pgDB, expenses.CreateUserContext{Email: validEmail, Password: "12314"})
+	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserContext{Email: validEmail, Password: "12314"})
 	require.NoError(t, err)
 	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: user.ID}
 

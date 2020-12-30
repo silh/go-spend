@@ -5,6 +5,7 @@ type User struct {
 	ID       uint
 	Email    Email
 	Password Password
+	GroupID  uint
 }
 
 // Raw create user request

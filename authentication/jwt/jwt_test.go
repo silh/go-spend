@@ -1,9 +1,10 @@
-package jwt
+package jwt_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"go-spend/authentication/jwt"
 	"strings"
 	"testing"
 	"time"
@@ -12,8 +13,8 @@ import (
 var secret = "my secret"
 
 func TestEncodeAndValidateToken(t *testing.T) {
-	algorithm := HmacSha256(secret)
-	payload := NewClaims()
+	algorithm := jwt.HmacSha256(secret)
+	payload := jwt.NewClaims()
 	payload.SetTime("nbf", time.Now().Add(time.Duration(-1)*time.Hour))
 	payload.SetTime("exp", time.Now().Add(time.Duration(100)*time.Hour))
 
@@ -23,8 +24,8 @@ func TestEncodeAndValidateToken(t *testing.T) {
 }
 
 func TestValidateToken(t *testing.T) {
-	algorithm := HmacSha256(secret)
-	payload := NewClaims()
+	algorithm := jwt.HmacSha256(secret)
+	payload := jwt.NewClaims()
 	err := json.Unmarshal([]byte(`{"sub":"1234567890","name":"John Doe","admin":true}`), &payload)
 	require.NoError(t, err)
 
@@ -40,8 +41,8 @@ func TestValidateToken(t *testing.T) {
 }
 
 func TestVerifyTokenExp(t *testing.T) {
-	algorithm := HmacSha256(secret)
-	payload := NewClaims()
+	algorithm := jwt.HmacSha256(secret)
+	payload := jwt.NewClaims()
 	payload["exp"] = fmt.Sprintf("%d", time.Now().Add(-1*time.Hour).Unix())
 
 	err := json.Unmarshal([]byte(`{"sub":"1234567890","name":"John Doe","admin":true}`), &payload)
@@ -55,9 +56,9 @@ func TestVerifyTokenExp(t *testing.T) {
 }
 
 func TestVerifyTokenNbf(t *testing.T) {
-	algorithm := HmacSha256(secret)
+	algorithm := jwt.HmacSha256(secret)
 
-	payload := NewClaims()
+	payload := jwt.NewClaims()
 	payload.SetTime("nbf", time.Now().Add(time.Duration(1)*time.Hour))
 
 	err := json.Unmarshal([]byte(`{"sub":"1234567890","name":"John Doe","admin":true}`), &payload)
@@ -71,7 +72,7 @@ func TestVerifyTokenNbf(t *testing.T) {
 }
 
 func TestDecodeMalformedToken(t *testing.T) {
-	algorithm := HmacSha256(secret)
+	algorithm := jwt.HmacSha256(secret)
 	bogusTokens := []string{"", "abc", "czwmS6hE.NZLElvuy"}
 
 	for _, bogusToken := range bogusTokens {
@@ -83,6 +84,6 @@ func TestDecodeMalformedToken(t *testing.T) {
 func TestValidateExternalToken(t *testing.T) {
 	token := "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIsImp0aSI6ImZmNzJkMWM5LTMzMTktNGIyOS04YjlhLWU1OThkNGJhNDRlZCJ9.eyJpc3MiOiJodHRwOi8vbG9jYWwuaG9zdC5jb20iLCJhdWQiOiJodHRwOi8vbG9jYWwuaG9zdC5jb20iLCJqdGkiOiJmZjcyZDFjOS0zMzE5LTRiMjktOGI5YS1lNTk4ZDRiYTQ0ZWQiLCJpYXQiOjE1MTkzMjc2NDYsIm5iZiI6MTUxOTMyNzY1MCwiZXhwIjoxNjQwMzkwNDAwfQ.ASo8eiekkwZ7on43S9n697x-SqmdehY680GetK_KqpI"
 
-	algorithm := HmacSha256("this-needs-a-test")
+	algorithm := jwt.HmacSha256("this-needs-a-test")
 	require.NoError(t, algorithm.Validate(token))
 }
