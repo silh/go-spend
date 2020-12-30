@@ -29,6 +29,10 @@ func NewDefaultGroupService(
 	return &DefaultGroupService{db: db, userRepository: userRepository, groupRepository: groupRepository}
 }
 
+// Create creates a group and assigns group creator to that group.
+// If creator doesn't exist - returns ErrUserNotFound
+// If creator is in another group - returns ErrUserIsInAnotherGroup
+// If group with such name exists - returns ErrGroupNameAlreadyExists
 func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error) {
 	id := request.CreatorID
 	tx, err := d.db.Begin(ctx)
