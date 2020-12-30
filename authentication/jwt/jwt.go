@@ -14,10 +14,12 @@ type Header struct {
 // Claims contains the claims of a jwt.
 type Claims map[string]interface{}
 
-// NewClaims returns a new map representing the claims.
+// NewClaims returns a new map representing the claims. Sets issue time and not before time
 func NewClaims() Claims {
 	claims := Claims(make(map[string]interface{}))
-	claims.SetTime("iat", time.Now())
+	now := time.Now()
+	claims.SetTime("iat", now)
+	claims.SetTime("nbf", now)
 	claims["iis"] = "go-spend" // fo simplification
 	return claims
 }

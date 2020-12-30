@@ -4,7 +4,6 @@ go 1.15
 
 require (
 	github.com/docker/go-connections v0.4.0
-	github.com/gofrs/uuid v3.2.0+incompatible
 	github.com/google/go-cmp v0.5.4 // indirect
 	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgtype v1.6.2

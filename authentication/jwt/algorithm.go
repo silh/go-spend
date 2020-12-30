@@ -179,8 +179,8 @@ func (a *Algorithm) validateNbf(claims Claims) error {
 }
 
 //HmacSha256 returns the SingingMethod for HMAC with SHA256
-func HmacSha256(key string) Algorithm {
-	return Algorithm{
+func HmacSha256(key string) *Algorithm {
+	return &Algorithm{
 		algorithm:   "HS256",
 		signingHash: hmac.New(sha256.New, []byte(key)),
 	}
