@@ -38,7 +38,8 @@ func (m *mockAuthenticator) Authenticate(
 	email expenses.Email,
 	password expenses.Password,
 ) (authentication.TokenResponse, error) {
-	panic("implement me")
+	args := m.Called(ctx, email, password)
+	return args.Get(0).(authentication.TokenResponse), args.Error(1)
 }
 
 func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupRequest) (expenses.GroupResponse, error) {
@@ -177,7 +178,7 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 	}
 }
 
-func TestServiceError(t *testing.T) {
+func TestCreateUserServiceError(t *testing.T) {
 	tests := []struct {
 		name         string
 		prepareMock  func(userService *mockUserService)
@@ -218,6 +219,81 @@ func TestServiceError(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
 			recorder := httptest.NewRecorder()
 			test.prepareMock(userService)
+			// when
+			router.ServeHTTP(recorder, req)
+
+			// then
+			assert.Equal(t, test.expectedCode, recorder.Code)
+		})
+	}
+}
+
+func TestAuthenticateUser(t *testing.T) {
+	// given
+	authenticator := new(mockAuthenticator)
+	router := main.NewRouter(new(mockUserService), new(mockGroupService), authenticator)
+
+	authRequest := authentication.AuthRequest{
+		Email:    "mail@mail.com",
+		Password: "password",
+	}
+	body, err := json.Marshal(&authRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/authenticate", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	expectedTokenResposne := authentication.TokenResponse{AccessToken: "asjkhdakj17", RefreshToken: "sakhadkj71"}
+	authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
+		Return(expectedTokenResposne, nil)
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var response authentication.TokenResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&response))
+	assert.Equal(t, expectedTokenResposne, response)
+}
+
+func TestAuthenticateFailed(t *testing.T) {
+	authRequest := authentication.AuthRequest{
+		Email:    "mail@mail.com",
+		Password: "password",
+	}
+	tests := []struct {
+		name         string
+		expectedCode int
+		prepareMock  func(*mockAuthenticator)
+	}{
+		{
+			name:         "incorrect creds",
+			expectedCode: http.StatusUnauthorized,
+			prepareMock: func(authenticator *mockAuthenticator) {
+				authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
+					Return(authentication.TokenResponse{}, authentication.ErrEmailOrPasswordIncorrect)
+			},
+		},
+		{
+			name:         "server error",
+			expectedCode: http.StatusInternalServerError,
+			prepareMock: func(authenticator *mockAuthenticator) {
+				authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
+					Return(authentication.TokenResponse{}, errors.New("some other error"))
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// given
+			authenticator := new(mockAuthenticator)
+			router := main.NewRouter(new(mockUserService), new(mockGroupService), authenticator)
+			body, err := json.Marshal(&authRequest)
+			require.NoError(t, err)
+			req := httptest.NewRequest(http.MethodPost, "/authenticate", bytes.NewBuffer(body))
+			recorder := httptest.NewRecorder()
+			test.prepareMock(authenticator)
+
 			// when
 			router.ServeHTTP(recorder, req)
 
