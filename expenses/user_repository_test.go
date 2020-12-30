@@ -13,7 +13,7 @@ func TestCreateUser(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := expenses.NewPgUserRepository().Create(ctx, PGDB, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
@@ -23,7 +23,7 @@ func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	repository := expenses.NewPgUserRepository()
 	_, _ = repository.Create(ctx, PGDB, user)
 	created2, err := repository.Create(ctx, PGDB, user)
@@ -36,7 +36,7 @@ func TestCantStoreTooLongEmail(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)
 
-	user := expenses.CreateUserContext{Email: createLongEmail(), Password: "password"}
+	user := expenses.CreateUserRequest{Email: createLongEmail(), Password: "password"}
 	repository := expenses.NewPgUserRepository()
 	created, err := repository.Create(ctx, PGDB, user)
 	assert.Zero(t, created)
@@ -49,7 +49,7 @@ func TestFindById(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
-	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := repository.Create(ctx, PGDB, user)
 	require.NoError(t, err)
 
@@ -74,7 +74,7 @@ func TestFindByEmail(t *testing.T) {
 
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
-	user := expenses.CreateUserContext{Email: "expenses@mail.com", Password: "password"}
+	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	created, err := repository.Create(ctx, PGDB, user)
 	require.NoError(t, err)
 

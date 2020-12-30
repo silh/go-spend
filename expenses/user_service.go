@@ -6,7 +6,7 @@ import (
 )
 
 type UserService interface {
-	Create(ctx context.Context, request CreateUserContext) (UserResponse, error)
+	Create(ctx context.Context, request CreateUserRequest) (UserResponse, error)
 }
 
 // DefaultUserService responsible for business logic with User type.
@@ -20,8 +20,8 @@ func NewDefaultUserService(db db.TxQuerier, repository UserRepository) *DefaultU
 	return &DefaultUserService{db: db, repository: repository}
 }
 
-// Store a new user in repository. CreateUserContext is expected to be valid.
-func (d *DefaultUserService) Create(ctx context.Context, request CreateUserContext) (UserResponse, error) {
+// Store a new user in repository. CreateUserRequest is expected to be valid.
+func (d *DefaultUserService) Create(ctx context.Context, request CreateUserRequest) (UserResponse, error) {
 	createdUser, err := d.repository.Create(ctx, d.db, request)
 	if err != nil {
 		return UserResponse{}, err

@@ -63,7 +63,7 @@ func TestAddUserToGroup(t *testing.T) {
 	groupRepository := expenses.NewPgGroupRepository()
 
 	// create user and group
-	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
+	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
 	require.NoError(t, err)
 	groupName := util.NonEmptyString("myGroup")
 	group, err := groupRepository.Create(ctx, PGDB, groupName)
@@ -81,7 +81,7 @@ func TestFindGroupByUserID(t *testing.T) {
 	groupRepository := expenses.NewPgGroupRepository()
 
 	// create user and group, add user to group
-	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
+	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
 	require.NoError(t, err)
 	groupName := util.NonEmptyString("myGroup")
 	group, err := groupRepository.Create(ctx, PGDB, groupName)
@@ -102,7 +102,7 @@ func TestFindWithUsersByID(t *testing.T) {
 	groupRepository := expenses.NewPgGroupRepository()
 
 	// create user and group, add user to group
-	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserContext{Email: "some@mail.ru", Password: "12xczc"})
+	user, err := userRepository.Create(ctx, PGDB, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
 	require.NoError(t, err)
 	groupName := util.NonEmptyString("myGroup")
 	group, err := groupRepository.Create(ctx, PGDB, groupName)

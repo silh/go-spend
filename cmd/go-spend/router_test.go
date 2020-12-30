@@ -20,7 +20,7 @@ type mockUserService struct {
 	mock.Mock
 }
 
-func (m *mockUserService) Create(ctx context.Context, request expenses.CreateUserContext) (expenses.UserResponse, error) {
+func (m *mockUserService) Create(ctx context.Context, request expenses.CreateUserRequest) (expenses.UserResponse, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(expenses.UserResponse), args.Error(1)
 }
@@ -60,7 +60,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	userService := new(mockUserService)
 	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
-	createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
+	createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
@@ -69,7 +69,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	userService.On(
 		"Create",
 		mock.Anything,
-		mock.AnythingOfType("expenses.CreateUserContext"),
+		mock.AnythingOfType("expenses.CreateUserRequest"),
 	).Return(userResponse, nil)
 
 	// when
@@ -87,7 +87,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	userService := new(mockUserService)
 	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
-	createUserRequest := expenses.CreateUserContext{Email: "some@mail.com", Password: "1234"}
+	createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPut, "/users", bytes.NewBuffer(jsonBody))
@@ -143,19 +143,19 @@ func TestCreateUserWithEmptyFields(t *testing.T) {
 func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 	tests := []struct {
 		name string
-		body expenses.CreateUserContext
+		body expenses.CreateUserRequest
 	}{
 		{
 			name: "no email",
-			body: expenses.CreateUserContext{Password: "1234"},
+			body: expenses.CreateUserRequest{Password: "1234"},
 		},
 		{
 			name: "no password",
-			body: expenses.CreateUserContext{Email: "some@email.com"},
+			body: expenses.CreateUserRequest{Email: "some@email.com"},
 		},
 		{
 			name: "invalid email",
-			body: expenses.CreateUserContext{Email: "someemail.com", Password: "12341"},
+			body: expenses.CreateUserRequest{Email: "someemail.com", Password: "12341"},
 		},
 	}
 	for _, test := range tests {
@@ -189,7 +189,7 @@ func TestServiceError(t *testing.T) {
 				userService.On(
 					"Create",
 					mock.Anything,
-					mock.AnythingOfType("expenses.CreateUserContext"),
+					mock.AnythingOfType("expenses.CreateUserRequest"),
 				).Return(expenses.UserResponse{}, expenses.ErrEmailAlreadyExists)
 			},
 			expectedCode: http.StatusBadRequest,
@@ -200,7 +200,7 @@ func TestServiceError(t *testing.T) {
 				userService.On(
 					"Create",
 					mock.Anything,
-					mock.AnythingOfType("expenses.CreateUserContext"),
+					mock.AnythingOfType("expenses.CreateUserRequest"),
 				).Return(expenses.UserResponse{}, errors.New("expected"))
 			},
 			expectedCode: http.StatusInternalServerError,
@@ -212,7 +212,7 @@ func TestServiceError(t *testing.T) {
 			userService := new(mockUserService)
 			router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
-			createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
+			createUserRequest := expenses.CreateUserRequest{Email: "some@mail.com", Password: "1234"}
 			jsonBody, err := json.Marshal(createUserRequest)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))

@@ -46,15 +46,10 @@ func (router *Router) handleUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	var rawRequest expenses.RawCreateUserRequest
+	var createUserRequest expenses.CreateUserRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&rawRequest); err != nil {
-		http.Error(w, IncorrectBody, http.StatusBadRequest)
-		return
-	}
-	createUserRequest, err := expenses.ValidCreateUserRequest(rawRequest)
-	if err != nil {
+	if err := decoder.Decode(&createUserRequest); err != nil {
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
@@ -72,7 +67,7 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	if err = json.NewEncoder(w).Encode(createdUser); err != nil {
 		log.Error(
 			"Could not write body to the create user response with email %s - %s",
-			rawRequest.Email,
+			createUserRequest.Email,
 			err,
 		)
 		http.Error(w, "Server error", http.StatusInternalServerError)

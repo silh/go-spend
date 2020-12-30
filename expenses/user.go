@@ -1,5 +1,10 @@
 package expenses
 
+import (
+	"bytes"
+	"encoding/json"
+)
+
 // Internal user type, will not be shared outside of the application. Every User can only be in one group.
 type User struct {
 	ID       uint
@@ -8,29 +13,34 @@ type User struct {
 	GroupID  uint
 }
 
-// Raw create user request
-type RawCreateUserRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+// CreateUserRequest contains information for User registration
+type CreateUserRequest struct {
+	Email    Email    `json:"email"`
+	Password Password `json:"password"`
 }
 
-// Validated create user request
-type CreateUserContext struct {
-	Email    Email
-	Password Password
-}
-
-// Validates email and password
-func ValidCreateUserRequest(rawRequest RawCreateUserRequest) (CreateUserContext, error) {
-	email, err := ValidEmail(rawRequest.Email)
-	if err != nil {
-		return CreateUserContext{}, err
+// UnmarshalJSON unmarshalls incoming JSON request and validates it.
+func (r *CreateUserRequest) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
 	}
-	password, err := ValidPassword(rawRequest.Password)
-	if err != nil {
-		return CreateUserContext{}, err
+	type createRequest struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
-	return CreateUserContext{Email: email, Password: password}, nil
+	var req createRequest
+	decoder := json.NewDecoder(bytes.NewBuffer(data))
+	decoder.DisallowUnknownFields()
+	var err error
+	if err = decoder.Decode(&req); err != nil {
+		return err
+	}
+	r.Email, err = ValidEmail(req.Email)
+	if err != nil {
+		return err
+	}
+	r.Password, err = ValidPassword(req.Password)
+	return err
 }
 
 // contains information returned when the User information is requested
