@@ -14,7 +14,7 @@ func TestCreateUser(t *testing.T) {
 	cleanUpDB(t, ctx)
 
 	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
-	created, err := expenses.NewPgUserRepository().Create(ctx, PGDB, user)
+	created, err := expenses.NewPgUserRepository().Create(ctx, pgdb, user)
 	require.NoError(t, err)
 	assert.NotZero(t, created.ID)
 }
@@ -25,8 +25,8 @@ func TestCantCreateTwoUsersWithSameEmail(t *testing.T) {
 
 	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
 	repository := expenses.NewPgUserRepository()
-	_, _ = repository.Create(ctx, PGDB, user)
-	created2, err := repository.Create(ctx, PGDB, user)
+	_, _ = repository.Create(ctx, pgdb, user)
+	created2, err := repository.Create(ctx, pgdb, user)
 	assert.Zero(t, created2)
 	assert.EqualError(t, err, expenses.ErrEmailAlreadyExists.Error())
 }
@@ -38,7 +38,7 @@ func TestCantStoreTooLongEmail(t *testing.T) {
 
 	user := expenses.CreateUserRequest{Email: createLongEmail(), Password: "password"}
 	repository := expenses.NewPgUserRepository()
-	created, err := repository.Create(ctx, PGDB, user)
+	created, err := repository.Create(ctx, pgdb, user)
 	assert.Zero(t, created)
 	assert.Error(t, err)
 }
@@ -50,10 +50,10 @@ func TestFindById(t *testing.T) {
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
 	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
-	created, err := repository.Create(ctx, PGDB, user)
+	created, err := repository.Create(ctx, pgdb, user)
 	require.NoError(t, err)
 
-	foundUser, err := repository.FindById(ctx, PGDB, created.ID)
+	foundUser, err := repository.FindById(ctx, pgdb, created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, created, foundUser)
 }
@@ -63,7 +63,7 @@ func TestFindByIdNonExistentUser(t *testing.T) {
 	cleanUpDB(t, ctx)
 
 	repository := expenses.NewPgUserRepository()
-	foundUser, err := repository.FindById(ctx, PGDB, 1)
+	foundUser, err := repository.FindById(ctx, pgdb, 1)
 	assert.EqualError(t, err, expenses.ErrUserNotFound.Error())
 	assert.Zero(t, foundUser)
 }
@@ -75,10 +75,10 @@ func TestFindByEmail(t *testing.T) {
 	// Create user to retrieve it later
 	repository := expenses.NewPgUserRepository()
 	user := expenses.CreateUserRequest{Email: "expenses@mail.com", Password: "password"}
-	created, err := repository.Create(ctx, PGDB, user)
+	created, err := repository.Create(ctx, pgdb, user)
 	require.NoError(t, err)
 
-	foundUser, err := repository.FindByEmail(ctx, PGDB, created.Email)
+	foundUser, err := repository.FindByEmail(ctx, pgdb, created.Email)
 	require.NoError(t, err)
 	assert.Equal(t, created, foundUser)
 }
@@ -88,7 +88,7 @@ func TestFindByEmailNonExistentUser(t *testing.T) {
 	cleanUpDB(t, ctx)
 
 	repository := expenses.NewPgUserRepository()
-	foundUser, err := repository.FindByEmail(ctx, PGDB, "email@mail.com")
+	foundUser, err := repository.FindByEmail(ctx, pgdb, "email@mail.com")
 	assert.EqualError(t, err, expenses.ErrUserNotFound.Error())
 	assert.Zero(t, foundUser)
 }

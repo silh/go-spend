@@ -25,6 +25,7 @@ type Token struct {
 	ExpiresAt int64
 }
 
+// TokenCreator creates tokens based on provided algorithms
 type TokenCreator struct {
 	accessAlgorithm        *jwt.Algorithm
 	refreshAlgorithm       *jwt.Algorithm

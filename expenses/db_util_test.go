@@ -26,10 +26,10 @@ const (
 	deleteAllGroupsQuery = "DELETE FROM groups"
 )
 
-var PGDB = CreateContainerAndGetDbUrl(context.Background())
+var pgdb = createPGContainerAndGetDbUrl(context.Background())
 
 // Creates PG container, applies necessary schema. If there is any error - it will panic
-func CreateContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
+func createPGContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
 	postgres, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
 			Image:        pgImage,
@@ -73,9 +73,9 @@ func CreateContainerAndGetDbUrl(ctx context.Context) *pgxpool.Pool {
 }
 
 func cleanUpDB(t *testing.T, ctx context.Context) {
-	_, err := PGDB.Exec(ctx, deleteAllGroupsQuery)
+	_, err := pgdb.Exec(ctx, deleteAllGroupsQuery)
 	require.NoError(t, err)
-	_, err = PGDB.Exec(ctx, deleteAllUsersQuery)
+	_, err = pgdb.Exec(ctx, deleteAllUsersQuery)
 	require.NoError(t, err)
 }
 
