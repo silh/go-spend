@@ -1,7 +1,9 @@
-package expenses
+package main
 
 import (
 	"encoding/json"
+	"go-spend/authentication"
+	"go-spend/expenses"
 	"go-spend/log"
 	"net/http"
 )
@@ -12,22 +14,27 @@ const (
 
 // Maps HTTP request to proper service. Validates parameters before passing them
 type Router struct {
-	userService  UserService
-	groupService GroupService
-	mux          http.Handler
+	userService   expenses.UserService
+	groupService  expenses.GroupService
+	authenticator authentication.Authenticator
+	mux           http.Handler
 }
 
 // Create new router instance
-func NewRouter(userService UserService, groupService GroupService) *Router {
+func NewRouter(
+	userService expenses.UserService,
+	groupService expenses.GroupService,
+	authenticator authentication.Authenticator) *Router {
 	mux := http.NewServeMux()
-	r := &Router{userService: userService, groupService: groupService, mux: mux}
+	r := &Router{userService: userService, groupService: groupService, authenticator: authenticator, mux: mux}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
 	mux.Handle("/groups", http.HandlerFunc(r.handleGroups))
+	mux.Handle("/authenticate", http.HandlerFunc(r.handleAuthentication))
 	return r
 }
 
-func (router *Router) GetMux() http.Handler {
-	return router.mux
+func (router *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	router.mux.ServeHTTP(writer, request)
 }
 
 func (router *Router) handleUsers(w http.ResponseWriter, r *http.Request) {
@@ -39,21 +46,21 @@ func (router *Router) handleUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	var rawRequest RawCreateUserRequest
+	var rawRequest expenses.RawCreateUserRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&rawRequest); err != nil {
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
-	createUserRequest, err := ValidCreateUserRequest(rawRequest)
+	createUserRequest, err := expenses.ValidCreateUserRequest(rawRequest)
 	if err != nil {
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
 	createdUser, err := router.userService.Create(r.Context(), createUserRequest)
 	if err != nil {
-		if err == ErrEmailAlreadyExists {
+		if err == expenses.ErrEmailAlreadyExists {
 			http.Error(w, "User already exists", http.StatusBadRequest)
 			return
 		}
@@ -83,7 +90,7 @@ func (router *Router) handleGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
-	var createGroupRequest CreateGroupRequest
+	var createGroupRequest expenses.CreateGroupRequest
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&createGroupRequest); err != nil {
@@ -91,4 +98,11 @@ func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	//create, err := router.groupService.Create(r.Context(), createGroupRequest)
+}
+
+func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Not found", http.StatusNotFound)
+	}
+
 }

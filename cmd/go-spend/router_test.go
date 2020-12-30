@@ -1,4 +1,4 @@
-package expenses_test
+package main_test
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go-spend/authentication"
+	"go-spend/cmd/go-spend"
 	"go-spend/expenses"
 	"net/http"
 	"net/http/httptest"
@@ -27,6 +29,18 @@ type mockGroupService struct {
 	mock.Mock
 }
 
+type mockAuthenticator struct {
+	mock.Mock
+}
+
+func (m *mockAuthenticator) Authenticate(
+	ctx context.Context,
+	email expenses.Email,
+	password expenses.Password,
+) (authentication.TokenResponse, error) {
+	panic("implement me")
+}
+
 func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupRequest) (expenses.GroupResponse, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(expenses.GroupResponse), args.Error(1)
@@ -37,14 +51,14 @@ func (m *mockGroupService) FindByID(_ context.Context, _ uint) (expenses.GroupRe
 }
 
 func TestNewRouter(t *testing.T) {
-	router := expenses.NewRouter(new(mockUserService), new(mockGroupService))
+	router := main.NewRouter(new(mockUserService), new(mockGroupService), new(mockAuthenticator))
 	assert.NotNil(t, router)
 }
 
 func TestCreateUserWithProperParams(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService, new(mockGroupService))
+	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
 	createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -59,7 +73,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	).Return(userResponse, nil)
 
 	// when
-	router.GetMux().ServeHTTP(recorder, req)
+	router.ServeHTTP(recorder, req)
 
 	// then
 	assert.Equal(t, http.StatusCreated, recorder.Code)
@@ -71,7 +85,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService, new(mockGroupService))
+	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
 	createUserRequest := expenses.CreateUserContext{Email: "some@mail.com", Password: "1234"}
 	jsonBody, err := json.Marshal(createUserRequest)
@@ -80,7 +94,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	// when
-	router.GetMux().ServeHTTP(recorder, req)
+	router.ServeHTTP(recorder, req)
 
 	// then
 	assert.Equal(t, http.StatusNotFound, recorder.Code)
@@ -89,7 +103,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 func TestCreateUserWithIncorrectBody(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService, new(mockGroupService))
+	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
 	createUserRequest := struct {
 		something int64
@@ -100,7 +114,7 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	// when
-	router.GetMux().ServeHTTP(recorder, req)
+	router.ServeHTTP(recorder, req)
 
 	// then
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -109,7 +123,7 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 func TestCreateUserWithEmptyFields(t *testing.T) {
 	// given
 	userService := new(mockUserService)
-	router := expenses.NewRouter(userService, new(mockGroupService))
+	router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
 	createUserRequest := struct {
 		something int64
@@ -120,7 +134,7 @@ func TestCreateUserWithEmptyFields(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	// when
-	router.GetMux().ServeHTTP(recorder, req)
+	router.ServeHTTP(recorder, req)
 
 	// then
 	assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -148,14 +162,14 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := expenses.NewRouter(userService, new(mockGroupService))
+			router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 			jsonBody, err := json.Marshal(&test.body)
 			require.NoError(t, err)
 			req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
 			recorder := httptest.NewRecorder()
 
 			// when
-			router.GetMux().ServeHTTP(recorder, req)
+			router.ServeHTTP(recorder, req)
 
 			// then
 			assert.Equal(t, http.StatusBadRequest, recorder.Code)
@@ -196,7 +210,7 @@ func TestServiceError(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			// given
 			userService := new(mockUserService)
-			router := expenses.NewRouter(userService, new(mockGroupService))
+			router := main.NewRouter(userService, new(mockGroupService), new(mockAuthenticator))
 
 			createUserRequest := expenses.RawCreateUserRequest{Email: "some@mail.com", Password: "1234"}
 			jsonBody, err := json.Marshal(createUserRequest)
@@ -205,7 +219,7 @@ func TestServiceError(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			test.prepareMock(userService)
 			// when
-			router.GetMux().ServeHTTP(recorder, req)
+			router.ServeHTTP(recorder, req)
 
 			// then
 			assert.Equal(t, test.expectedCode, recorder.Code)
