@@ -19,8 +19,12 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(ctx context.Context, _ pgxtype.Querier, request expenses.CreateUserContext) (expenses.User, error) {
-	args := m.Called(ctx, request)
+func (m *MockUserRepository) Create(
+	ctx context.Context,
+	db pgxtype.Querier,
+	request expenses.CreateUserContext,
+) (expenses.User, error) {
+	args := m.Called(ctx, db, request)
 	return args.Get(0).(expenses.User), args.Error(1)
 }
 
@@ -39,12 +43,13 @@ func TestNewDefaultUserService(t *testing.T) {
 
 func TestDefaultUserServiceCreate(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
+	db := new(MockTxQuerier)
+	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()
 	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
 	createdUser := expenses.User{ID: 1, Email: validEmail, Password: "123"}
-	mockRepo.On("Create", ctx, request).Return(createdUser, nil)
+	mockRepo.On("Create", ctx, db, request).Return(createdUser, nil)
 
 	expected := expenses.UserResponse{ID: createdUser.ID, Email: createdUser.Email}
 
@@ -55,12 +60,13 @@ func TestDefaultUserServiceCreate(t *testing.T) {
 
 func TestDefaultUserServiceCreateError(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := expenses.NewDefaultUserService(new(MockTxQuerier), mockRepo)
+	db := new(MockTxQuerier)
+	service := expenses.NewDefaultUserService(db, mockRepo)
 
 	ctx := context.Background()
 	request := expenses.CreateUserContext{Email: validEmail, Password: "123"}
 	expectedError := errors.New("db is not accessible")
-	mockRepo.On("Create", ctx, request).Return(expenses.User{}, expectedError)
+	mockRepo.On("Create", ctx, db, request).Return(expenses.User{}, expectedError)
 
 	actual, err := service.Create(ctx, request)
 	assert.Zero(t, actual)

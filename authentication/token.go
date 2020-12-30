@@ -6,6 +6,12 @@ import (
 	"time"
 )
 
+// TokenResponse is a struct to map token values to JSON
+type TokenResponse struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+}
+
 // TokenPair contains info about both access and refresh tokens
 type TokenPair struct {
 	AccessToken  Token
