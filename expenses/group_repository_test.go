@@ -51,7 +51,7 @@ func TestCantCreateTwoGroupsWithTheSameName(t *testing.T) {
 	groupName := util.NonEmptyString("myGroup")
 	_, _ = repository.Create(ctx, PGDB, groupName)
 	created2, err := repository.Create(ctx, PGDB, groupName)
-	assert.EqualError(t, err, expenses.ErrNameAlreadyExists.Error())
+	assert.EqualError(t, err, expenses.ErrGroupNameAlreadyExists.Error())
 	assert.Zero(t, created2)
 }
 

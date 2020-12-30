@@ -25,10 +25,6 @@ func (m *mockUserService) Create(ctx context.Context, request expenses.CreateUse
 	return args.Get(0).(expenses.UserResponse), args.Error(1)
 }
 
-type mockGroupService struct {
-	mock.Mock
-}
-
 type mockAuthenticator struct {
 	mock.Mock
 }
@@ -40,6 +36,10 @@ func (m *mockAuthenticator) Authenticate(
 ) (authentication.TokenResponse, error) {
 	args := m.Called(ctx, email, password)
 	return args.Get(0).(authentication.TokenResponse), args.Error(1)
+}
+
+type mockGroupService struct {
+	mock.Mock
 }
 
 func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupRequest) (expenses.GroupResponse, error) {
@@ -264,11 +264,13 @@ func TestAuthenticateFailed(t *testing.T) {
 	tests := []struct {
 		name         string
 		expectedCode int
+		method       string
 		prepareMock  func(*mockAuthenticator)
 	}{
 		{
 			name:         "incorrect creds",
 			expectedCode: http.StatusUnauthorized,
+			method:       http.MethodPost,
 			prepareMock: func(authenticator *mockAuthenticator) {
 				authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
 					Return(authentication.TokenResponse{}, authentication.ErrEmailOrPasswordIncorrect)
@@ -277,9 +279,17 @@ func TestAuthenticateFailed(t *testing.T) {
 		{
 			name:         "server error",
 			expectedCode: http.StatusInternalServerError,
+			method:       http.MethodPost,
 			prepareMock: func(authenticator *mockAuthenticator) {
 				authenticator.On("Authenticate", context.Background(), authRequest.Email, authRequest.Password).
 					Return(authentication.TokenResponse{}, errors.New("some other error"))
+			},
+		},
+		{
+			name:         "incorrect HTTP method",
+			expectedCode: http.StatusNotFound,
+			method:       http.MethodGet,
+			prepareMock: func(authenticator *mockAuthenticator) {
 			},
 		},
 	}
@@ -290,9 +300,122 @@ func TestAuthenticateFailed(t *testing.T) {
 			router := main.NewRouter(new(mockUserService), new(mockGroupService), authenticator)
 			body, err := json.Marshal(&authRequest)
 			require.NoError(t, err)
-			req := httptest.NewRequest(http.MethodPost, "/authenticate", bytes.NewBuffer(body))
+			req := httptest.NewRequest(test.method, "/authenticate", bytes.NewBuffer(body))
 			recorder := httptest.NewRecorder()
 			test.prepareMock(authenticator)
+
+			// when
+			router.ServeHTTP(recorder, req)
+
+			// then
+			assert.Equal(t, test.expectedCode, recorder.Code)
+		})
+	}
+}
+
+func TestCreateGroup(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(new(mockUserService), groupService, new(mockAuthenticator))
+
+	groupRequest := expenses.CreateGroupRequest{
+		Name:      "someName",
+		CreatorID: 1,
+	}
+	expectedGroupResponse := expenses.GroupResponse{
+		ID:   1,
+		Name: groupRequest.Name,
+		Users: []expenses.UserResponse{
+			{
+				ID:    1,
+				Email: "some@mail.com",
+			},
+		},
+	}
+	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
+
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusCreated, recorder.Code)
+	var createdGroup expenses.GroupResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&createdGroup))
+	assert.Equal(t, expectedGroupResponse, createdGroup)
+}
+
+func TestCreateGroupErrors(t *testing.T) {
+	groupRequest := expenses.CreateGroupRequest{
+		Name:      "someName",
+		CreatorID: 1,
+	}
+	tests := []struct {
+		name         string
+		expectedCode int
+		method       string
+		prepareMock  func(service *mockGroupService)
+	}{
+		{
+			name:         "creator not found",
+			expectedCode: http.StatusBadRequest,
+			method:       http.MethodPost,
+			prepareMock: func(service *mockGroupService) {
+				service.On("Create", mock.Anything, groupRequest).
+					Return(expenses.GroupResponse{}, expenses.ErrUserNotFound)
+			},
+		},
+		{
+			name:         "group with such name exists",
+			expectedCode: http.StatusBadRequest,
+			method:       http.MethodPost,
+			prepareMock: func(service *mockGroupService) {
+				service.On("Create", mock.Anything, groupRequest).
+					Return(expenses.GroupResponse{}, expenses.ErrGroupNameAlreadyExists)
+			},
+		},
+		{
+			name:         "user is already in a group",
+			expectedCode: http.StatusBadRequest,
+			method:       http.MethodPost,
+			prepareMock: func(service *mockGroupService) {
+				service.On("Create", mock.Anything, groupRequest).
+					Return(expenses.GroupResponse{}, expenses.ErrUserIsInAnotherGroup)
+			},
+		},
+		{
+			name:         "incorrect method",
+			expectedCode: http.StatusNotFound,
+			method:       http.MethodGet,
+			prepareMock: func(service *mockGroupService) {
+			},
+		},
+		{
+			name:         "server error on some other fail",
+			expectedCode: http.StatusInternalServerError,
+			method:       http.MethodPost,
+			prepareMock: func(service *mockGroupService) {
+				service.On("Create", mock.Anything, groupRequest).
+					Return(expenses.GroupResponse{}, errors.New("some error"))
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// given
+			groupService := new(mockGroupService)
+			router := main.NewRouter(new(mockUserService), groupService, new(mockAuthenticator))
+
+			test.prepareMock(groupService)
+
+			body, err := json.Marshal(&groupRequest)
+			require.NoError(t, err)
+			req := httptest.NewRequest(test.method, "/groups", bytes.NewBuffer(body))
+			recorder := httptest.NewRecorder()
 
 			// when
 			router.ServeHTTP(recorder, req)

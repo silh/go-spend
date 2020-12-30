@@ -40,9 +40,9 @@ const (
 )
 
 var (
-	ErrNameAlreadyExists    = errors.New("group with such name already exists")
-	ErrGroupNotFound        = errors.New("group not found")
-	ErrUserIsInAnotherGroup = errors.New("user is already in another group")
+	ErrGroupNameAlreadyExists = errors.New("group with such name already exists")
+	ErrGroupNotFound          = errors.New("group not found")
+	ErrUserIsInAnotherGroup   = errors.New("user is already in another group")
 )
 
 // Group repository that stores info in Postgres DB
@@ -58,7 +58,7 @@ func (p *PgGroupRepository) Create(ctx context.Context, db pgxtype.Querier, grou
 	createdGroup := Group{Name: groupName}
 	if err := db.QueryRow(ctx, createGroupQuery, groupName).Scan(&createdGroup.ID); err != nil {
 		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
-			return Group{}, ErrNameAlreadyExists
+			return Group{}, ErrGroupNameAlreadyExists
 		}
 		return Group{}, err
 	}

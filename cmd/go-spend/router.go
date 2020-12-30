@@ -90,21 +90,8 @@ func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	createdGroup, err := router.groupService.Create(r.Context(), createGroupRequest)
-	if err == expenses.ErrUserNotFound {
-		http.Error(w, "User doesn't exists", http.StatusBadRequest)
-		return
-	}
-	if err == expenses.ErrNameAlreadyExists {
-		http.Error(w, "Group with such name already exists", http.StatusBadRequest)
-		return
-	}
-	if err == expenses.ErrUserIsInAnotherGroup {
-		http.Error(w, "User participates in another group", http.StatusBadRequest)
-		return
-	}
 	if err != nil {
-		http.Error(w, ServerError, http.StatusInternalServerError)
-		log.Error("couldn't create group %s by user %d", createGroupRequest.Name, createGroupRequest.CreatorID)
+		handleGroupCreationErrors(w, err, createGroupRequest)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -139,5 +126,23 @@ func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Reques
 	if err = json.NewEncoder(w).Encode(&tokenResponse); err != nil {
 		log.Error("couldn't write body of auth response - %s", err)
 		http.Error(w, ServerError, http.StatusInternalServerError)
+	}
+}
+
+func handleGroupCreationErrors(
+	w http.ResponseWriter,
+	err error,
+	createGroupRequest expenses.CreateGroupRequest,
+) {
+	switch err {
+	case expenses.ErrUserNotFound:
+		http.Error(w, "User doesn't exists", http.StatusBadRequest)
+	case expenses.ErrGroupNameAlreadyExists:
+		http.Error(w, "Group with such name already exists", http.StatusBadRequest)
+	case expenses.ErrUserIsInAnotherGroup:
+		http.Error(w, "User participates in another group", http.StatusBadRequest)
+	default:
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't create group %s by user %d - %s", createGroupRequest.Name, createGroupRequest.CreatorID, err)
 	}
 }
