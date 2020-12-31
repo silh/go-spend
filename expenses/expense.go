@@ -71,3 +71,9 @@ func ValidateCreateExpenseContext(req CreateExpenseContext) error {
 	}
 	return nil
 }
+
+// CreateExpenseShares stores info for creation of expense shares in DB.
+type CreateExpenseShares struct {
+	ExpenseID uint
+	Shares    ExpenseShares
+}

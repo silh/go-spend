@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype/pgxtype"
 	"github.com/jackc/pgx/v4"
+	pg "go-spend/db"
 	"go-spend/util"
 )
 
@@ -57,7 +58,7 @@ func NewPgGroupRepository() *PgGroupRepository {
 func (p *PgGroupRepository) Create(ctx context.Context, db pgxtype.Querier, groupName util.NonEmptyString) (Group, error) {
 	createdGroup := Group{Name: groupName}
 	if err := db.QueryRow(ctx, createGroupQuery, groupName).Scan(&createdGroup.ID); err != nil {
-		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
+		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == pg.UniqueViolation {
 			return Group{}, ErrGroupNameAlreadyExists
 		}
 		return Group{}, err
@@ -67,7 +68,7 @@ func (p *PgGroupRepository) Create(ctx context.Context, db pgxtype.Querier, grou
 
 func (p *PgGroupRepository) AddUserToGroup(ctx context.Context, db pgxtype.Querier, userID uint, groupID uint) error {
 	if _, err := db.Exec(ctx, addUserToGroup, userID, groupID); err != nil {
-		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
+		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == pg.UniqueViolation {
 			return ErrUserIsInAnotherGroup
 		}
 		return err
@@ -88,17 +89,22 @@ func (p *PgGroupRepository) FindByID(ctx context.Context, db pgxtype.Querier, id
 
 func (p *PgGroupRepository) FindByIDWithUsers(ctx context.Context, db pgxtype.Querier, id uint) (GroupResponse, error) {
 	var group GroupResponse
+	var err error
 	rows, err := db.Query(ctx, findGroupByIDWithUsersQuery, id)
 	if err != nil {
 		return GroupResponse{}, err
 	}
 	defer rows.Close()
-	for rows.Next() {
+	rowsFound := 0
+	for ; rows.Next(); rowsFound++ {
 		var user UserResponse
-		if err := rows.Scan(&group.ID, &group.Name, &user.ID, &user.Email); err != nil {
+		if err = rows.Scan(&group.ID, &group.Name, &user.ID, &user.Email); err != nil {
 			return GroupResponse{}, err
 		}
 		group.Users = append(group.Users, user)
+	}
+	if rowsFound == 0 {
+		return GroupResponse{}, ErrGroupNotFound
 	}
 	if rows.Err() != nil {
 		return GroupResponse{}, rows.Err()

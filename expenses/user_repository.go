@@ -6,11 +6,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgtype/pgxtype"
 	"github.com/jackc/pgx/v4"
-)
-
-const (
-	// PG Error codes
-	uniqueViolation = "23505"
+	pg "go-spend/db"
 )
 
 // UserRepository is an repository of users of the expenses system
@@ -52,7 +48,7 @@ func NewPgUserRepository() *PgUserRepository {
 func (r *PgUserRepository) Create(ctx context.Context, db pgxtype.Querier, user CreateUserRequest) (User, error) {
 	var id uint
 	if err := db.QueryRow(ctx, createUserQuery, user.Email, user.Password).Scan(&id); err != nil {
-		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == uniqueViolation {
+		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == pg.UniqueViolation {
 			return User{}, ErrEmailAlreadyExists
 		}
 		return User{}, err

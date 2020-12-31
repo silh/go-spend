@@ -17,3 +17,9 @@ type TxProvider interface {
 	// Begin a new transaction
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
+
+const (
+	// PG Error codes
+	UniqueViolation     = "23505"
+	ForeignKeyViolation = "23503"
+)

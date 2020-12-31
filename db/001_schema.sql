@@ -21,11 +21,18 @@ CREATE TABLE IF NOT EXISTS users_groups
 
 CREATE TABLE IF NOT EXISTS expenses
 (
-    id      BIGSERIAL PRIMARY KEY,
-    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
-    amount  REAL   NOT NULL,
+    id        BIGSERIAL PRIMARY KEY,
+    user_id   BIGINT    NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    amount    REAL      NOT NULL,
     /* its recommended not to call columns as reserved words, did so in accordance with the description */
     timestamp TIMESTAMP NOT NULL DEFAULT current_timestamp
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS expenses_user_id_idx on expenses (user_id);
+CREATE INDEX IF NOT EXISTS expenses_user_id_idx on expenses (user_id);
+
+CREATE TABLE IF NOT EXISTS expenses_shares
+(
+    expense_id BIGINT   NOT NULL REFERENCES expenses (id) ON DELETE CASCADE,
+    user_id    BIGINT   NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    percent    SMALLINT NOT NULL
+)
