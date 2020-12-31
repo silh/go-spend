@@ -11,12 +11,11 @@ import (
 )
 
 func TestCreateGroupRequestUnmarshalJSON(t *testing.T) {
-	groupJSON := `{"name":"name", "creatorId": 1}`
+	groupJSON := `{"name":"name"}`
 	var result expenses.CreateGroupRequest
 	err := json.NewDecoder(strings.NewReader(groupJSON)).Decode(&result)
 	require.NoError(t, err)
 	assert.Equal(t, util.NonEmptyString("name"), result.Name)
-	assert.Equal(t, uint(1), result.CreatorID)
 }
 
 func TestCreateGroupRequestUnmarshalJSONNull(t *testing.T) {
@@ -34,15 +33,15 @@ func TestCreateGroupRequestUnmarshalJSONErrors(t *testing.T) {
 	}{
 		{
 			name: "unexpected fields",
-			json: `{"name":"name", "creatorId": 1, "zz":"aaaa"}`,
+			json: `{"name":"name", "zz":"aaaa"}`,
 		},
 		{
 			name: "no name field",
-			json: `{"name":"name", "creatorId": 1, "zz":"aaaa"}`,
+			json: `{"zz":"aaaa"}`,
 		},
 		{
 			name: "empty name",
-			json: `{"name":"", "creatorId": 1}`,
+			json: `{"name":""}`,
 		},
 	}
 	for _, test := range tests {

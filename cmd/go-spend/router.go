@@ -112,9 +112,22 @@ func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
-	createdGroup, err := router.groupService.Create(r.Context(), createGroupRequest)
+	userContext, err := extractUser(r)
 	if err != nil {
-		handleGroupCreationErrors(w, err, createGroupRequest)
+		http.Error(w, Forbidden, http.StatusForbidden)
+		return
+	}
+	if userContext.GroupID != 0 {
+		http.Error(w, IncorrectValues, http.StatusBadRequest)
+		return
+	}
+	createGroupContext := expenses.CreateGroupContext{
+		Name:      createGroupRequest.Name,
+		CreatorID: userContext.UserID,
+	}
+	createdGroup, err := router.groupService.Create(r.Context(), createGroupContext)
+	if err != nil {
+		handleGroupCreationErrors(w, err, createGroupContext)
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -155,7 +168,7 @@ func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Reques
 func handleGroupCreationErrors(
 	w http.ResponseWriter,
 	err error,
-	createGroupRequest expenses.CreateGroupRequest,
+	createGroupRequest expenses.CreateGroupContext,
 ) {
 	switch err {
 	case expenses.ErrUserNotFound:

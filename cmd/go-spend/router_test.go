@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+var (
+	defaultUserContextForCreate = authentication.UserContext{
+		UserID:  1,
+		GroupID: 0,
+	}
+)
+
 type mockUserService struct {
 	mock.Mock
 }
@@ -44,7 +51,7 @@ type mockGroupService struct {
 	mock.Mock
 }
 
-func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupRequest) (expenses.GroupResponse, error) {
+func (m *mockGroupService) Create(ctx context.Context, request expenses.CreateGroupContext) (expenses.GroupResponse, error) {
 	args := m.Called(ctx, request)
 	return args.Get(0).(expenses.GroupResponse), args.Error(1)
 }
@@ -114,7 +121,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewBuffer(jsonBody))
 	recorder := httptest.NewRecorder()
-	userResponse := expenses.UserResponse{ID: 1, Email: expenses.Email(createUserRequest.Email)}
+	userResponse := expenses.UserResponse{ID: 1, Email: createUserRequest.Email}
 	userService.On(
 		"Create",
 		mock.Anything,
@@ -403,7 +410,7 @@ func TestAuthenticateFailed(t *testing.T) {
 	}
 }
 
-func TestCreateGroup(t *testing.T) {
+func TestRouterCreateGroup(t *testing.T) {
 	// given
 	groupService := new(mockGroupService)
 	router := main.NewRouter(
@@ -415,8 +422,11 @@ func TestCreateGroup(t *testing.T) {
 	)
 
 	groupRequest := expenses.CreateGroupRequest{
+		Name: "someName",
+	}
+	groupContext := expenses.CreateGroupContext{
 		Name:      "someName",
-		CreatorID: 1,
+		CreatorID: defaultUserContextForCreate.UserID,
 	}
 	expectedGroupResponse := expenses.GroupResponse{
 		ID:   1,
@@ -428,11 +438,12 @@ func TestCreateGroup(t *testing.T) {
 			},
 		},
 	}
-	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
+	groupService.On("Create", mock.Anything, groupContext).Return(expectedGroupResponse, nil)
 
 	body, err := json.Marshal(&groupRequest)
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
 	recorder := httptest.NewRecorder()
 
 	// when
@@ -446,7 +457,7 @@ func TestCreateGroup(t *testing.T) {
 }
 
 func TestCreateGroupErrors(t *testing.T) {
-	groupRequest := expenses.CreateGroupRequest{
+	groupRequest := expenses.CreateGroupContext{
 		Name:      "someName",
 		CreatorID: 1,
 	}
@@ -517,6 +528,7 @@ func TestCreateGroupErrors(t *testing.T) {
 			body, err := json.Marshal(&groupRequest)
 			require.NoError(t, err)
 			req := httptest.NewRequest(test.method, "/groups", bytes.NewBuffer(body))
+			req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
 			recorder := httptest.NewRecorder()
 
 			// when
@@ -539,7 +551,7 @@ func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T)
 		new(mockUserService),
 	)
 
-	groupRequest := expenses.CreateGroupRequest{
+	groupRequest := expenses.CreateGroupContext{
 		Name:      "someName",
 		CreatorID: 1,
 	}
@@ -581,7 +593,7 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 		new(mockUserService),
 	)
 
-	groupRequest := expenses.CreateGroupRequest{
+	groupRequest := expenses.CreateGroupContext{
 		Name:      "someName",
 		CreatorID: 1,
 	}
@@ -596,7 +608,7 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 		},
 	}
 	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
-	tokenRetriever.On("Retrieve", tokenUUID).Return(authentication.UserContext{}, nil)
+	tokenRetriever.On("Retrieve", tokenUUID).Return(defaultUserContextForCreate, nil)
 
 	body, err := json.Marshal(&groupRequest)
 	require.NoError(t, err)
@@ -868,7 +880,9 @@ func TestAddToGroupForbiddenWithWrongStuffInContext(t *testing.T) {
 	data, err := json.Marshal(&addRequest)
 	require.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
-	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", "rrrr")) // this should never happen
+	// this should never happen
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", "rrrr"))
+	req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
 	recorder := httptest.NewRecorder()
 
 	// when

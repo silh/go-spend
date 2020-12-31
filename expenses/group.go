@@ -20,8 +20,13 @@ type GroupResponse struct {
 
 // CreateGroupRequest is a JSON request to create a Group
 type CreateGroupRequest struct {
-	Name      util.NonEmptyString `json:"name"`
-	CreatorID uint                `json:"creatorId"`
+	Name util.NonEmptyString `json:"name"`
+}
+
+// CreateGroupContext contains necessary info to create a group
+type CreateGroupContext struct {
+	Name      util.NonEmptyString
+	CreatorID uint
 }
 
 // UnmarshalJSON transforms the request JSON data and validates it.
@@ -44,7 +49,6 @@ func (c *CreateGroupRequest) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return err
 	}
-	c.CreatorID = req.CreatorID
 	return nil
 }
 

@@ -141,7 +141,7 @@ func TestCreateGroupWithCreator(t *testing.T) {
 	// Create a user so that it can create a group
 	user, err := userRepository.Create(ctx, pgdb, expenses.CreateUserRequest{Email: validEmail, Password: "12314"})
 	require.NoError(t, err)
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: user.ID}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: user.ID}
 
 	// when
 	createdGroup, err := groupService.Create(ctx, createGroupRequest)
@@ -170,7 +170,7 @@ func TestCreateGroupFailedToStartTx(t *testing.T) {
 
 	db.On("Begin", ctx).Return(nil, errors.New("expected"))
 
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: 1}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: 1}
 
 	// when
 	_, err := groupService.Create(ctx, createGroupRequest)
@@ -191,7 +191,7 @@ func TestCreateGroupFailedToFindUser(t *testing.T) {
 	db.On("Begin", ctx).Return(tx, nil)
 	userRepository.On("FindById", ctx, tx, uint(1)).Return(expenses.User{}, errors.New("expected"))
 
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: 1}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: 1}
 
 	// when
 	_, err := groupService.Create(ctx, createGroupRequest)
@@ -210,7 +210,7 @@ func TestCreateGroupFailedToCreate(t *testing.T) {
 	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
 	db.On("Begin", ctx).Return(tx, nil)
 	user := expenses.User{ID: 1}
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: 1}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: 1}
 	userRepository.On("FindById", ctx, tx, uint(1)).Return(user, nil)
 	groupRepository.On("Create", ctx, tx, createGroupRequest.Name).
 		Return(expenses.Group{}, errors.New("expected"))
@@ -232,7 +232,7 @@ func TestCreateGroupFailedAddUser(t *testing.T) {
 	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
 	db.On("Begin", ctx).Return(tx, nil)
 	user := expenses.User{ID: 1}
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: 1}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: 1}
 	group := expenses.Group{ID: 1, Name: createGroupRequest.Name}
 	userRepository.On("FindById", ctx, tx, uint(1)).Return(user, nil)
 	groupRepository.On("Create", ctx, tx, createGroupRequest.Name).
@@ -256,7 +256,7 @@ func TestCreateGroupFailedToCommitTx(t *testing.T) {
 	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
 	db.On("Begin", ctx).Return(tx, nil)
 	user := expenses.User{ID: 1}
-	createGroupRequest := expenses.CreateGroupRequest{Name: "name", CreatorID: 1}
+	createGroupRequest := expenses.CreateGroupContext{Name: "name", CreatorID: 1}
 	group := expenses.Group{ID: 1, Name: createGroupRequest.Name}
 	userRepository.On("FindById", ctx, tx, uint(1)).Return(user, nil)
 	groupRepository.On("Create", ctx, tx, createGroupRequest.Name).

@@ -10,7 +10,7 @@ import (
 // Perform operations with groups of Users
 type GroupService interface {
 	// Create a new group and add its creator to the group
-	Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error)
+	Create(ctx context.Context, request CreateGroupContext) (GroupResponse, error)
 	// Find Group by its ID
 	FindByID(ctx context.Context, id uint) (GroupResponse, error)
 	// AddUserToGroup adds user to an existing group
@@ -35,7 +35,7 @@ func NewDefaultGroupService(
 // If creator doesn't exist - returns ErrUserNotFound
 // If creator is in another group - returns ErrUserIsInAnotherGroup
 // If group with such name exists - returns ErrGroupNameAlreadyExists
-func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error) {
+func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupContext) (GroupResponse, error) {
 	id := request.CreatorID
 	tx, err := d.db.Begin(ctx)
 	if err != nil {
