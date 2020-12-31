@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 type mockUserService struct {
@@ -69,10 +70,23 @@ func (m *mockTokenRetriever) Retrieve(uuid string) (authentication.UserContext, 
 	return args.Get(0).(authentication.UserContext), args.Error(1)
 }
 
+type mockExpensesService struct {
+	mock.Mock
+}
+
+func (m *mockExpensesService) Create(
+	ctx context.Context,
+	newExpense expenses.CreateExpenseContext,
+) (expenses.ExpenseResponse, error) {
+	args := m.Called(ctx, newExpense)
+	return args.Get(0).(expenses.ExpenseResponse), args.Error(1)
+}
+
 func TestNewRouter(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		new(mockUserService),
 	)
@@ -85,6 +99,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
 	)
@@ -117,6 +132,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
 	)
@@ -140,6 +156,7 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
 	)
@@ -165,6 +182,7 @@ func TestCreateUserWithEmptyFields(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
 	)
@@ -209,6 +227,7 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockExpensesService),
 				new(mockGroupService),
 				userService,
 			)
@@ -262,6 +281,7 @@ func TestCreateUserServiceError(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockExpensesService),
 				new(mockGroupService),
 				userService,
 			)
@@ -287,6 +307,7 @@ func TestAuthenticateUser(t *testing.T) {
 	router := main.NewRouter(
 		authenticator,
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		new(mockGroupService),
 		new(mockUserService),
 	)
@@ -358,6 +379,7 @@ func TestAuthenticateFailed(t *testing.T) {
 			router := main.NewRouter(
 				authenticator,
 				new(mockAuthorizer),
+				new(mockExpensesService),
 				new(mockGroupService),
 				new(mockUserService),
 			)
@@ -382,6 +404,7 @@ func TestCreateGroup(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
 	)
@@ -479,6 +502,7 @@ func TestCreateGroupErrors(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockExpensesService),
 				groupService,
 				new(mockUserService),
 			)
@@ -505,6 +529,7 @@ func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T)
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		authentication.NewJWTAuthorizer(jwt.HmacSha256("key"), new(mockTokenRetriever)),
+		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
 	)
@@ -537,7 +562,7 @@ func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T)
 	assert.Equal(t, http.StatusForbidden, recorder.Code)
 }
 
-func TestCreateGroupWithAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
+func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 	// given
 	groupService := new(mockGroupService)
 	tokenRetriever := new(mockTokenRetriever)
@@ -546,6 +571,7 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		authentication.NewJWTAuthorizer(alg, tokenRetriever),
+		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
 	)
@@ -581,6 +607,57 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
 	var createdGroup expenses.GroupResponse
 	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&createdGroup))
 	assert.Equal(t, expectedGroupResponse, createdGroup)
+}
+
+func TestCreateExpense(t *testing.T) {
+	// given
+	expensesService := new(mockExpensesService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		expensesService,
+		new(mockGroupService),
+		new(mockUserService),
+	)
+
+	expenseRequest := expenses.CreateExpenseRequest{
+		Amount: 100.10,
+		Shares: expenses.ExpenseShares{
+			1: 100,
+		},
+	}
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 1,
+	}
+
+	body, err := json.Marshal(&expenseRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/expenses", bytes.NewBuffer(body))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+	expectedResponse := expenses.ExpenseResponse{
+		UserID:    1,
+		Amount:    expenseRequest.Amount,
+		Timestamp: time.Now(),
+		Shares:    expenseRequest.Shares,
+	}
+
+	checkFunc := func(ctx expenses.CreateExpenseContext) bool {
+		return ctx.UserID == userContext.UserID && ctx.GroupID == userContext.GroupID
+	}
+	expensesService.On("Create", mock.Anything, mock.MatchedBy(checkFunc)).Return(expectedResponse, nil)
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusCreated, recorder.Code)
+	var response expenses.ExpenseResponse
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&response))
+	assert.InDelta(t, expenseRequest.Amount, response.Amount, 0.01)
+	assert.Equal(t, userContext.UserID, expectedResponse.UserID)
+	assert.NotZero(t, response.Timestamp)
 }
 
 func prepareValidJWT(t *testing.T, accessAlg *jwt.Algorithm) (string, string) {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"go-spend/authentication"
 	"go-spend/expenses"
 	"go-spend/log"
@@ -12,33 +13,42 @@ const (
 	IncorrectBody           = "Incorrect body"
 	UserOrPasswordIncorrect = "User or password incorrect"
 	ServerError             = "Server Error"
+	Forbidden               = "Forbidden"
+)
+
+var (
+	ErrUserContextNotFound = errors.New("user context not found")
 )
 
 // Maps HTTP request to proper service. Validates parameters before passing them
 type Router struct {
 	mux http.Handler
 
-	authenticator authentication.Authenticator
-	authorizer    authentication.Authorizer
-	groupService  expenses.GroupService
-	userService   authentication.UserService
+	authenticator   authentication.Authenticator
+	authorizer      authentication.Authorizer
+	expensesService expenses.Service
+	groupService    expenses.GroupService
+	userService     authentication.UserService
 }
 
 func NewRouter(
 	authenticator authentication.Authenticator,
 	authorizer authentication.Authorizer,
+	expensesService expenses.Service,
 	groupService expenses.GroupService,
 	userService authentication.UserService,
 ) *Router {
 	mux := http.NewServeMux()
 	r := &Router{
-		mux:           mux,
-		authenticator: authenticator,
-		authorizer:    authorizer,
-		groupService:  groupService,
-		userService:   userService,
+		mux:             mux,
+		authenticator:   authenticator,
+		expensesService: expensesService,
+		authorizer:      authorizer,
+		groupService:    groupService,
+		userService:     userService,
 	}
 	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
+	mux.Handle("/expenses", r.authorizer.Authorize(r.handleExpenses))
 	mux.Handle("/groups", r.authorizer.Authorize(r.handleGroups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.handleAuthentication))
 	return r
@@ -154,4 +164,61 @@ func handleGroupCreationErrors(
 		http.Error(w, ServerError, http.StatusInternalServerError)
 		log.Error("couldn't create group %s by user %d - %s", createGroupRequest.Name, createGroupRequest.CreatorID, err)
 	}
+}
+
+func (router *Router) handleExpenses(w http.ResponseWriter, r *http.Request) {
+	var err error
+	userContext, err := extractUser(r)
+	if err != nil {
+		http.Error(w, Forbidden, http.StatusForbidden)
+		return
+	}
+	if r.Method != http.MethodPost {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	router.handleCreateExpense(w, r, userContext)
+}
+
+func (router *Router) handleCreateExpense(
+	w http.ResponseWriter,
+	r *http.Request,
+	userContext authentication.UserContext,
+) {
+	var err error
+	var expenseReq expenses.CreateExpenseRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&expenseReq); err != nil {
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
+		return
+	}
+	expenseContext := expenses.CreateExpenseContext{
+		UserID:  userContext.UserID,
+		GroupID: userContext.GroupID,
+		Amount:  expenseReq.Amount,
+		Shares:  expenseReq.Shares,
+	}
+	created, err := router.expensesService.Create(r.Context(), expenseContext)
+	if err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	if err = json.NewEncoder(w).Encode(&created); err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't write body for create expense response - %s", err)
+	}
+}
+
+func extractUser(r *http.Request) (authentication.UserContext, error) {
+	value := r.Context().Value("user")
+	if value == nil {
+		return authentication.UserContext{}, ErrUserContextNotFound
+	}
+	userContext, ok := value.(authentication.UserContext)
+	if !ok {
+		return authentication.UserContext{}, ErrUserContextNotFound
+	}
+	return userContext, nil
 }

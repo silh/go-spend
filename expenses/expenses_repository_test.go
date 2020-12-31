@@ -19,7 +19,7 @@ func TestPgRepositoryCreate(t *testing.T) {
 	// Need to create a user first
 	user, err := userRepo.Create(ctx, pgdb, expenses.CreateUserRequest{Email: "mail@mail.com", Password: "128c76xz"})
 	require.NoError(t, err)
-	req := expenses.CreateExpenseRequest{
+	req := expenses.NewExpense{
 		UserID: user.ID,
 		Amount: 20.20,
 	}

@@ -8,7 +8,7 @@ import (
 // Repository for User and Group expenses
 type Repository interface {
 	// Create stores new Expense
-	Create(ctx context.Context, db pgxtype.Querier, req CreateExpenseRequest) (Expense, error)
+	Create(ctx context.Context, db pgxtype.Querier, req NewExpense) (Expense, error)
 }
 
 const (
@@ -18,7 +18,7 @@ const (
 type PgRepository struct {
 }
 
-func (p *PgRepository) Create(ctx context.Context, db pgxtype.Querier, req CreateExpenseRequest) (Expense, error) {
+func (p *PgRepository) Create(ctx context.Context, db pgxtype.Querier, req NewExpense) (Expense, error) {
 	result := Expense{
 		UserID: req.UserID,
 		Amount: req.Amount,
