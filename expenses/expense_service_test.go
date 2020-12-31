@@ -13,6 +13,7 @@ import (
 func TestDefaultServiceCreateExpense(t *testing.T) {
 	// given
 	ctx := context.Background()
+	cleanUpDB(t, ctx)
 	userRepository := expenses.NewPgUserRepository()
 	groupRepository := expenses.NewPgGroupRepository()
 

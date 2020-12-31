@@ -17,12 +17,15 @@ type GroupService interface {
 	AddUserToGroup(ctx context.Context, addRequest AddToGroupRequest) error
 }
 
+// DefaultGroupService is default implementation of GroupService. If fetches data through UserRepository and
+// GroupRepository
 type DefaultGroupService struct {
 	db              db.TxQuerier
 	userRepository  UserRepository
 	groupRepository GroupRepository
 }
 
+// NewDefaultGroupService creates new instance of DefaultGroupService
 func NewDefaultGroupService(
 	db db.TxQuerier,
 	userRepository UserRepository,
