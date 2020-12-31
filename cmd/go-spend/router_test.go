@@ -94,10 +94,20 @@ func (m *mockExpensesService) Create(
 	return args.Get(0).(expenses.ExpenseResponse), args.Error(1)
 }
 
+type mockBalanceService struct {
+	mock.Mock
+}
+
+func (m *mockBalanceService) Get(ctx context.Context, userID uint) (expenses.Balance, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(expenses.Balance), args.Error(1)
+}
+
 func TestNewRouter(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		new(mockUserService),
@@ -111,6 +121,7 @@ func TestCreateUserWithProperParams(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
@@ -144,6 +155,7 @@ func TestCreateUserWithIncorrectMethod(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
@@ -168,6 +180,7 @@ func TestCreateUserWithIncorrectBody(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
@@ -194,6 +207,7 @@ func TestCreateUserWithEmptyFields(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		userService,
@@ -239,6 +253,7 @@ func TestCreateUserWithSomeIncorrectFields(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockBalanceService),
 				new(mockExpensesService),
 				new(mockGroupService),
 				userService,
@@ -293,6 +308,7 @@ func TestCreateUserServiceError(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockBalanceService),
 				new(mockExpensesService),
 				new(mockGroupService),
 				userService,
@@ -319,6 +335,7 @@ func TestAuthenticateUser(t *testing.T) {
 	router := main.NewRouter(
 		authenticator,
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		new(mockGroupService),
 		new(mockUserService),
@@ -391,6 +408,7 @@ func TestAuthenticateFailed(t *testing.T) {
 			router := main.NewRouter(
 				authenticator,
 				new(mockAuthorizer),
+				new(mockBalanceService),
 				new(mockExpensesService),
 				new(mockGroupService),
 				new(mockUserService),
@@ -416,6 +434,7 @@ func TestRouterCreateGroup(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -518,6 +537,7 @@ func TestCreateGroupErrors(t *testing.T) {
 			router := main.NewRouter(
 				new(mockAuthenticator),
 				new(mockAuthorizer),
+				new(mockBalanceService),
 				new(mockExpensesService),
 				groupService,
 				new(mockUserService),
@@ -546,6 +566,7 @@ func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T)
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		authentication.NewJWTAuthorizer(jwt.HmacSha256("key"), new(mockTokenRetriever)),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -588,6 +609,7 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		authentication.NewJWTAuthorizer(alg, tokenRetriever),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -632,6 +654,7 @@ func TestCreateExpense(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		expensesService,
 		new(mockGroupService),
 		new(mockUserService),
@@ -683,6 +706,7 @@ func TestCreateExpenseIncorrectBody(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		expensesService,
 		new(mockGroupService),
 		new(mockUserService),
@@ -711,6 +735,7 @@ func TestCreateExpenseNoUserForbidden(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		expensesService,
 		new(mockGroupService),
 		new(mockUserService),
@@ -732,6 +757,7 @@ func TestCreateExpenseNonProperContextBadRequest(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		expensesService,
 		new(mockGroupService),
 		new(mockUserService),
@@ -768,6 +794,7 @@ func TestCreateExpenseServiceFailsServerError(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		expensesService,
 		new(mockGroupService),
 		new(mockUserService),
@@ -809,6 +836,7 @@ func TestAddToGroup(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -843,6 +871,7 @@ func TestAddToGroupForbiddenWithoutUserContext(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -869,6 +898,7 @@ func TestAddToGroupForbiddenWithWrongStuffInContext(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -898,6 +928,7 @@ func TestAddToGroupIncorrectBodyBadRequest(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -924,6 +955,7 @@ func TestAddToGroupDifferentGroupOfCallerForbidden(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -956,6 +988,7 @@ func TestAddToGroupErrUserOrGroupNotFoundBadRequest(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -991,6 +1024,7 @@ func TestAddToGroupErrUserIsInAnotherGroupBadRequest(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),
@@ -1026,6 +1060,7 @@ func TestAddToGroupOtherErrServerError(t *testing.T) {
 	router := main.NewRouter(
 		new(mockAuthenticator),
 		new(mockAuthorizer),
+		new(mockBalanceService),
 		new(mockExpensesService),
 		groupService,
 		new(mockUserService),

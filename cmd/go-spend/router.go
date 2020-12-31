@@ -15,6 +15,7 @@ const (
 	UserOrPasswordIncorrect = "User or password incorrect"
 	ServerError             = "Server Error"
 	Forbidden               = "Forbidden"
+	NotFound                = "Not Found"
 )
 
 var (
@@ -27,6 +28,7 @@ type Router struct {
 
 	authenticator   authentication.Authenticator
 	authorizer      authentication.Authorizer
+	balanceService  expenses.BalanceService
 	expensesService expenses.Service
 	groupService    expenses.GroupService
 	userService     authentication.UserService
@@ -35,6 +37,7 @@ type Router struct {
 func NewRouter(
 	authenticator authentication.Authenticator,
 	authorizer authentication.Authorizer,
+	balanceService expenses.BalanceService,
 	expensesService expenses.Service,
 	groupService expenses.GroupService,
 	userService authentication.UserService,
@@ -43,15 +46,17 @@ func NewRouter(
 	r := &Router{
 		mux:             mux,
 		authenticator:   authenticator,
-		expensesService: expensesService,
 		authorizer:      authorizer,
+		balanceService:  balanceService,
+		expensesService: expensesService,
 		groupService:    groupService,
 		userService:     userService,
 	}
-	mux.Handle("/users", http.HandlerFunc(r.handleUsers))
-	mux.Handle("/expenses", r.authorizer.Authorize(r.handleExpenses))
-	mux.Handle("/groups", r.authorizer.Authorize(r.handleGroups))
-	mux.Handle("/authenticate", http.HandlerFunc(r.handleAuthentication))
+	mux.Handle("/users", http.HandlerFunc(r.users))
+	mux.Handle("/expenses", r.authorizer.Authorize(r.expenses))
+	mux.Handle("/groups", r.authorizer.Authorize(r.groups))
+	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
+	mux.Handle("/status", r.authorizer.Authorize(r.balance))
 	return r
 }
 
@@ -60,9 +65,9 @@ func (router *Router) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	router.mux.ServeHTTP(writer, request)
 }
 
-func (router *Router) handleUsers(w http.ResponseWriter, r *http.Request) {
+func (router *Router) users(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Not found", http.StatusNotFound)
+		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
 	router.handleCreateUser(w, r)
@@ -94,14 +99,14 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	log.Info("created a new user - %s", createdUser.Email)
 }
 
-func (router *Router) handleGroups(w http.ResponseWriter, r *http.Request) {
+func (router *Router) groups(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
 		router.handleCreateGroup(w, r)
 	case http.MethodPut:
 		router.handleAddToGroup(w, r)
 	default:
-		http.Error(w, "Not found", http.StatusNotFound)
+		http.Error(w, NotFound, http.StatusNotFound)
 	}
 }
 
@@ -137,9 +142,9 @@ func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (router *Router) handleAuthentication(w http.ResponseWriter, r *http.Request) {
+func (router *Router) authenticate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		http.Error(w, "Not found", http.StatusNotFound)
+		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
 	var auth authentication.AuthRequest
@@ -183,7 +188,7 @@ func handleGroupCreationErrors(
 	}
 }
 
-func (router *Router) handleExpenses(w http.ResponseWriter, r *http.Request) {
+func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 	var err error
 	userContext, err := extractUser(r)
 	if err != nil {
@@ -191,7 +196,7 @@ func (router *Router) handleExpenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method != http.MethodPost {
-		http.Error(w, "Not found", http.StatusNotFound)
+		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
 	router.handleCreateExpense(w, r, userContext)
@@ -258,6 +263,29 @@ func (router *Router) handleAddToGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
+	var err error
+	user, err := extractUser(r)
+	if err != nil {
+		http.Error(w, Forbidden, http.StatusForbidden)
+		return
+	}
+	if r.Method == http.MethodGet {
+		http.Error(w, NotFound, http.StatusNotFound)
+		return
+	}
+	balance, err := router.balanceService.Get(r.Context(), user.UserID)
+	if err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't get balance for the user - %s", err)
+		return
+	}
+	if err = json.NewEncoder(w).Encode(&balance); err != nil {
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		log.Error("couldn't write balance response for the user - %s", err)
+	}
 }
 
 func extractUser(r *http.Request) (authentication.UserContext, error) {
