@@ -65,15 +65,18 @@ func (router *Router) ServeHTTP(writer http.ResponseWriter, request *http.Reques
 	router.mux.ServeHTTP(writer, request)
 }
 
+// users handles all request to the /users endpoint, at the moment that only Create
 func (router *Router) users(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
-	router.handleCreateUser(w, r)
+	router.createUser(w, r)
 }
 
-func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
+// createUser prepares body of request to create user and call necessary service to do the job
+// If everything is correct - responds with 201
+func (router *Router) createUser(w http.ResponseWriter, r *http.Request) {
 	var createUserRequest expenses.CreateUserRequest
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&createUserRequest); err != nil {
@@ -99,18 +102,21 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	log.Info("created a new user - %s", createdUser.Email)
 }
 
+// groups handles all requests to /groups endpoint - create and add user.
 func (router *Router) groups(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodPost:
-		router.handleCreateGroup(w, r)
+		router.createGroup(w, r)
 	case http.MethodPut:
-		router.handleAddToGroup(w, r)
+		router.addToGroup(w, r)
 	default:
 		http.Error(w, NotFound, http.StatusNotFound)
 	}
 }
 
-func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
+// createGroup prepares request body and start group creation
+// If everything is correct - responds with 201
+func (router *Router) createGroup(w http.ResponseWriter, r *http.Request) {
 	var createGroupRequest expenses.CreateGroupRequest
 	var err error
 	if err = json.NewDecoder(r.Body).Decode(&createGroupRequest); err != nil {
@@ -142,6 +148,8 @@ func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// authenticate performs user authentication
+// If everything is correct - responds 200 and provides access and refresh tokens
 func (router *Router) authenticate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, NotFound, http.StatusNotFound)
@@ -188,6 +196,7 @@ func handleGroupCreationErrors(
 	}
 }
 
+// expenses handles all request to /expenses ednpoint. At the moment that's just Create Expense
 func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 	var err error
 	userContext, err := extractUser(r)
@@ -199,10 +208,12 @@ func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
-	router.handleCreateExpense(w, r, userContext)
+	router.createExpense(w, r, userContext)
 }
 
-func (router *Router) handleCreateExpense(
+// createExpense prepares incoming body and start expense creation.
+// If everything is correct - responds with 201
+func (router *Router) createExpense(
 	w http.ResponseWriter,
 	r *http.Request,
 	userContext authentication.UserContext,
@@ -237,7 +248,9 @@ func (router *Router) handleCreateExpense(
 	}
 }
 
-func (router *Router) handleAddToGroup(w http.ResponseWriter, r *http.Request) {
+// addToGroup prepares incoming body and starts procedure to add user into a group
+// If everything is correct - responds with 200 without a body
+func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
 	user, err := extractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
@@ -265,6 +278,7 @@ func (router *Router) handleAddToGroup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// balance handles request to /balance endpoint. At the moment that's only GET of a balance for a current user.
 func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 	var err error
 	user, err := extractUser(r)
@@ -288,6 +302,7 @@ func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// extractUser from request. It should be put there by Authorizer
 func extractUser(r *http.Request) (authentication.UserContext, error) {
 	value := r.Context().Value("user")
 	if value == nil {
