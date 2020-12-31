@@ -199,6 +199,10 @@ func (router *Router) handleCreateExpense(
 		Amount:  expenseReq.Amount,
 		Shares:  expenseReq.Shares,
 	}
+	if err = expenses.ValidateCreateExpenseContext(expenseContext); err != nil {
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
+		return
+	}
 	created, err := router.expensesService.Create(r.Context(), expenseContext)
 	if err != nil {
 		http.Error(w, ServerError, http.StatusInternalServerError)

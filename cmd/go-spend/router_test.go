@@ -660,6 +660,132 @@ func TestCreateExpense(t *testing.T) {
 	assert.NotZero(t, response.Timestamp)
 }
 
+func TestCreateExpenseIncorrectBody(t *testing.T) {
+	// given
+	expensesService := new(mockExpensesService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		expensesService,
+		new(mockGroupService),
+		new(mockUserService),
+	)
+
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 1,
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/expenses", bytes.NewBuffer([]byte("body")))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+// This one should not happen with proper setup
+func TestCreateExpenseNoUserForbidden(t *testing.T) {
+	// given
+	expensesService := new(mockExpensesService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		expensesService,
+		new(mockGroupService),
+		new(mockUserService),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/expenses", bytes.NewBuffer([]byte("body")))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestCreateExpenseNonProperContextBadRequest(t *testing.T) {
+	// given
+	expensesService := new(mockExpensesService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		expensesService,
+		new(mockGroupService),
+		new(mockUserService),
+	)
+
+	expenseRequest := expenses.CreateExpenseRequest{
+		Amount: 100.10,
+		Shares: expenses.ExpenseShares{
+			1: 95,
+			2: 1,
+		},
+	}
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 1,
+	}
+
+	body, err := json.Marshal(&expenseRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/expenses", bytes.NewBuffer(body))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestCreateExpenseServiceFailsServerError(t *testing.T) {
+	// given
+	expensesService := new(mockExpensesService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		expensesService,
+		new(mockGroupService),
+		new(mockUserService),
+	)
+
+	expenseRequest := expenses.CreateExpenseRequest{
+		Amount: 100.10,
+		Shares: expenses.ExpenseShares{
+			1: 100,
+		},
+	}
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 1,
+	}
+
+	body, err := json.Marshal(&expenseRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/expenses", bytes.NewBuffer(body))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	checkFunc := func(ctx expenses.CreateExpenseContext) bool {
+		return ctx.UserID == userContext.UserID && ctx.GroupID == userContext.GroupID
+	}
+	expensesService.On("Create", mock.Anything, mock.MatchedBy(checkFunc)).
+		Return(expenses.ExpenseResponse{}, errors.New("expected"))
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
 func prepareValidJWT(t *testing.T, accessAlg *jwt.Algorithm) (string, string) {
 	claims := jwt.NewClaims()
 	accessUUID := "uuid-id"

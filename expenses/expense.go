@@ -1,6 +1,7 @@
 package expenses
 
 import (
+	"errors"
 	"time"
 )
 
@@ -45,3 +46,28 @@ type ExpenseShares map[uint]Percent
 
 // Percent is uint between 0 and 100 for the particular context
 type Percent uint
+
+// ValidateCreateExpenseContext checks CreateExpenseContext to contain proper information. Doesn't check if specified
+// participants are actually in the required group.
+func ValidateCreateExpenseContext(req CreateExpenseContext) error {
+	if req.Amount <= 0 {
+		return errors.New("amount should be positive number")
+	}
+	if req.UserID == 0 {
+		return errors.New("incorrect user")
+	}
+	if req.GroupID == 0 {
+		return errors.New("incorrect group")
+	}
+	if len(req.Shares) == 0 {
+		return errors.New("shares should contain at least one share")
+	}
+	totalPercent := Percent(0)
+	for _, share := range req.Shares {
+		totalPercent += share
+	}
+	if totalPercent != 100 {
+		return errors.New("total percent for shares incorrect")
+	}
+	return nil
+}
