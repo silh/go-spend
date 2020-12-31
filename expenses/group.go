@@ -35,8 +35,7 @@ func (c *CreateGroupRequest) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 	type createGroupRequest struct {
-		Name      string `json:"name"`
-		CreatorID uint   `json:"creatorId"`
+		Name string `json:"name"`
 	}
 	var req createGroupRequest
 	decoder := json.NewDecoder(bytes.NewReader(data))

@@ -476,22 +476,29 @@ func TestRouterCreateGroup(t *testing.T) {
 }
 
 func TestCreateGroupErrors(t *testing.T) {
-	groupRequest := expenses.CreateGroupContext{
-		Name:      "someName",
-		CreatorID: 1,
+	groupRequest := expenses.CreateGroupRequest{
+		Name: "someName",
 	}
+	groupContext := expenses.CreateGroupContext{
+		Name:      groupRequest.Name,
+		CreatorID: defaultUserContextForCreate.UserID,
+	}
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
 	tests := []struct {
 		name         string
 		expectedCode int
 		method       string
+		request      []byte
 		prepareMock  func(service *mockGroupService)
 	}{
 		{
 			name:         "creator not found",
 			expectedCode: http.StatusBadRequest,
 			method:       http.MethodPost,
+			request:      body,
 			prepareMock: func(service *mockGroupService) {
-				service.On("Create", mock.Anything, groupRequest).
+				service.On("Create", mock.Anything, groupContext).
 					Return(expenses.GroupResponse{}, expenses.ErrUserNotFound)
 			},
 		},
@@ -499,8 +506,9 @@ func TestCreateGroupErrors(t *testing.T) {
 			name:         "group with such name exists",
 			expectedCode: http.StatusBadRequest,
 			method:       http.MethodPost,
+			request:      body,
 			prepareMock: func(service *mockGroupService) {
-				service.On("Create", mock.Anything, groupRequest).
+				service.On("Create", mock.Anything, groupContext).
 					Return(expenses.GroupResponse{}, expenses.ErrGroupNameAlreadyExists)
 			},
 		},
@@ -509,7 +517,7 @@ func TestCreateGroupErrors(t *testing.T) {
 			expectedCode: http.StatusBadRequest,
 			method:       http.MethodPost,
 			prepareMock: func(service *mockGroupService) {
-				service.On("Create", mock.Anything, groupRequest).
+				service.On("Create", mock.Anything, groupContext).
 					Return(expenses.GroupResponse{}, expenses.ErrUserIsInAnotherGroup)
 			},
 		},
@@ -517,17 +525,24 @@ func TestCreateGroupErrors(t *testing.T) {
 			name:         "incorrect method",
 			expectedCode: http.StatusNotFound,
 			method:       http.MethodGet,
-			prepareMock: func(service *mockGroupService) {
-			},
+			prepareMock:  func(service *mockGroupService) {},
 		},
 		{
 			name:         "server error on some other fail",
 			expectedCode: http.StatusInternalServerError,
 			method:       http.MethodPost,
+			request:      body,
 			prepareMock: func(service *mockGroupService) {
-				service.On("Create", mock.Anything, groupRequest).
+				service.On("Create", mock.Anything, groupContext).
 					Return(expenses.GroupResponse{}, errors.New("some error"))
 			},
+		},
+		{
+			name:         "bad body",
+			expectedCode: http.StatusBadRequest,
+			method:       http.MethodPost,
+			request:      []byte("string"),
+			prepareMock:  func(service *mockGroupService) {},
 		},
 	}
 	for _, test := range tests {
@@ -545,9 +560,7 @@ func TestCreateGroupErrors(t *testing.T) {
 
 			test.prepareMock(groupService)
 
-			body, err := json.Marshal(&groupRequest)
-			require.NoError(t, err)
-			req := httptest.NewRequest(test.method, "/groups", bytes.NewBuffer(body))
+			req := httptest.NewRequest(test.method, "/groups", bytes.NewBuffer(test.request))
 			req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
 			recorder := httptest.NewRecorder()
 
@@ -558,6 +571,67 @@ func TestCreateGroupErrors(t *testing.T) {
 			assert.Equal(t, test.expectedCode, recorder.Code)
 		})
 	}
+}
+
+func TestRouterCreateGroupUserInGroupInContext(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockBalanceService),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+
+	groupRequest := expenses.CreateGroupRequest{
+		Name: "someName",
+	}
+	userInGroup := authentication.UserContext{
+		UserID:  1,
+		GroupID: 1,
+	}
+
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	req = req.WithContext(context.WithValue(req.Context(), "user", userInGroup))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestRouterCreateGroupNotUserInContext(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockBalanceService),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+
+	groupRequest := expenses.CreateGroupRequest{
+		Name: "someName",
+	}
+
+	body, err := json.Marshal(&groupRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBuffer(body))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
 }
 
 func TestCreateGroupWithoutAuthorizationWithJWTAuthorizerForbidden(t *testing.T) {
@@ -615,9 +689,12 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 		new(mockUserService),
 	)
 
-	groupRequest := expenses.CreateGroupContext{
+	groupContext := expenses.CreateGroupContext{
 		Name:      "someName",
 		CreatorID: 1,
+	}
+	groupRequest := expenses.CreateGroupRequest{
+		Name: "someName",
 	}
 	expectedGroupResponse := expenses.GroupResponse{
 		ID:   1,
@@ -629,7 +706,7 @@ func TestCreateGroupWithAuthorizationWithJWTAuthorizerCreated(t *testing.T) {
 			},
 		},
 	}
-	groupService.On("Create", mock.Anything, groupRequest).Return(expectedGroupResponse, nil)
+	groupService.On("Create", mock.Anything, groupContext).Return(expectedGroupResponse, nil)
 	tokenRetriever.On("Retrieve", tokenUUID).Return(defaultUserContextForCreate, nil)
 
 	body, err := json.Marshal(&groupRequest)
@@ -1085,6 +1162,111 @@ func TestAddToGroupOtherErrServerError(t *testing.T) {
 
 	// when
 	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestGetBalance(t *testing.T) {
+	// given
+	balanceService := new(mockBalanceService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		balanceService,
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodGet, "/balance", nil)
+	req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
+	recorder := httptest.NewRecorder()
+
+	expectedBalance := expenses.Balance{
+		2: 20.0,
+		3: -50.1,
+		4: 80.3,
+	}
+	balanceService.On("Get", req.Context(), defaultUserContextForCreate.UserID).
+		Return(expectedBalance, nil)
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusOK, recorder.Code)
+	var response expenses.Balance
+	require.NoError(t, json.NewDecoder(recorder.Body).Decode(&response))
+	assert.Equal(t, expectedBalance, response)
+}
+
+func TestGetBalanceNoUserInContextForbidden(t *testing.T) {
+	// given
+	balanceService := new(mockBalanceService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		balanceService,
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodGet, "/balance", nil)
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestGetBalanceWrongMethodNotFound(t *testing.T) {
+	// given
+	balanceService := new(mockBalanceService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		balanceService,
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodPost, "/balance", nil)
+	req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
+func TestGetBalanceServiceReturnsError(t *testing.T) {
+	// given
+	balanceService := new(mockBalanceService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		balanceService,
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodGet, "/balance", nil)
+	req = req.WithContext(context.WithValue(req.Context(), "user", defaultUserContextForCreate))
+	recorder := httptest.NewRecorder()
+
+	balanceService.On("Get", req.Context(), defaultUserContextForCreate.UserID).
+		Return(expenses.Balance{}, errors.New("expected"))
+
+	// when
+	router.ServeHTTP(recorder, req)
 
 	// then
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)

@@ -56,7 +56,7 @@ func NewRouter(
 	mux.Handle("/expenses", r.authorizer.Authorize(r.expenses))
 	mux.Handle("/groups", r.authorizer.Authorize(r.groups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
-	mux.Handle("/status", r.authorizer.Authorize(r.balance))
+	mux.Handle("/balance", r.authorizer.Authorize(r.balance))
 	return r
 }
 
@@ -119,13 +119,13 @@ func (router *Router) groups(w http.ResponseWriter, r *http.Request) {
 func (router *Router) createGroup(w http.ResponseWriter, r *http.Request) {
 	var createGroupRequest expenses.CreateGroupRequest
 	var err error
-	if err = json.NewDecoder(r.Body).Decode(&createGroupRequest); err != nil {
-		http.Error(w, IncorrectBody, http.StatusBadRequest)
-		return
-	}
 	userContext, err := extractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
+		return
+	}
+	if err = json.NewDecoder(r.Body).Decode(&createGroupRequest); err != nil {
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
 	if userContext.GroupID != 0 {
@@ -286,7 +286,7 @@ func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
 	}
-	if r.Method == http.MethodGet {
+	if r.Method != http.MethodGet {
 		http.Error(w, NotFound, http.StatusNotFound)
 		return
 	}
