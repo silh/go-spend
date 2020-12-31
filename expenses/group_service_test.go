@@ -14,6 +14,10 @@ import (
 	"testing"
 )
 
+const (
+	validEmail = "email@mail.com"
+)
+
 type mockGroupRepository struct {
 	mock.Mock
 }
@@ -93,6 +97,32 @@ func (m *mockTx) QueryFunc(ctx context.Context, sql string, args []interface{}, 
 
 func (m *mockTx) Conn() *pgx.Conn {
 	panic("implement me")
+}
+
+type mockUserRepository struct {
+	mock.Mock
+}
+
+func (m *mockUserRepository) Create(
+	_ context.Context,
+	_ pgxtype.Querier,
+	_ expenses.CreateUserRequest,
+) (expenses.User, error) {
+	panic("implement me")
+}
+
+func (m *mockUserRepository) FindById(ctx context.Context, db pgxtype.Querier, id uint) (expenses.User, error) {
+	args := m.Called(ctx, db, id)
+	return args.Get(0).(expenses.User), args.Error(1)
+}
+
+func (m *mockUserRepository) FindByEmail(
+	ctx context.Context,
+	db pgxtype.Querier,
+	email expenses.Email,
+) (expenses.User, error) {
+	args := m.Called(ctx, db, email)
+	return args.Get(0).(expenses.User), args.Error(1)
 }
 
 func TestNewDefaultGroupService(t *testing.T) {

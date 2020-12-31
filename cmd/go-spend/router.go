@@ -21,14 +21,14 @@ type Router struct {
 	authenticator authentication.Authenticator
 	authorizer    authentication.Authorizer
 	groupService  expenses.GroupService
-	userService   expenses.UserService
+	userService   authentication.UserService
 }
 
 func NewRouter(
 	authenticator authentication.Authenticator,
 	authorizer authentication.Authorizer,
 	groupService expenses.GroupService,
-	userService expenses.UserService,
+	userService authentication.UserService,
 ) *Router {
 	mux := http.NewServeMux()
 	r := &Router{

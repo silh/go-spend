@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"go-spend/expenses"
 	"go-spend/log"
 	"time"
 )
@@ -12,7 +11,7 @@ func init() {
 }
 
 func main() {
-	config := expenses.Config{}
+	config := Config{}
 	flag.UintVar(&config.Port, "port", 8080, "Server port")
 	flag.StringVar(&config.DB.Name, "db-user", "user", "DB username")
 	flag.StringVar(&config.DB.Password, "db-password", "password", "DB password")
@@ -27,7 +26,7 @@ func main() {
 	)
 	flag.Parse()
 
-	application, err := expenses.NewApplication(config)
+	application, err := NewApplication(config)
 	if err != nil {
 		log.FatalErr(err)
 	}

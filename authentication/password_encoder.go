@@ -39,10 +39,10 @@ func (*BCryptPasswordEncoder) Check(hashed string, toTest string) bool {
 type NoAcPasswordEncoder struct {
 }
 
-func (NoAcPasswordEncoder) Encode(password string) (string, error) {
+func (*NoAcPasswordEncoder) Encode(password string) (string, error) {
 	return password, nil
 }
 
-func (NoAcPasswordEncoder) Check(hashed string, toTest string) bool {
+func (*NoAcPasswordEncoder) Check(hashed string, toTest string) bool {
 	return hashed == toTest
 }

@@ -19,11 +19,12 @@ type mockUserRepository struct {
 }
 
 func (m *mockUserRepository) Create(
-	_ context.Context,
-	_ pgxtype.Querier,
-	_ expenses.CreateUserRequest,
+	ctx context.Context,
+	db pgxtype.Querier,
+	req expenses.CreateUserRequest,
 ) (expenses.User, error) {
-	panic("implement me")
+	args := m.Called(ctx, db, req)
+	return args.Get(0).(expenses.User), args.Error(1)
 }
 
 func (m *mockUserRepository) FindById(_ context.Context, _ pgxtype.Querier, _ uint) (expenses.User, error) {
@@ -70,7 +71,7 @@ func (m *mockTokeSaver) Save(pair authentication.TokenPair, userContext authenti
 
 var (
 	testTokenCreator      = authentication.NewTokenCreator(jwt.HmacSha256("acc"), jwt.HmacSha256("ref"))
-	simplePasswordChecker = authentication.NoAcPasswordEncoder{}
+	simplePasswordChecker = &authentication.NoAcPasswordEncoder{}
 )
 
 func TestNewAuthService(t *testing.T) {

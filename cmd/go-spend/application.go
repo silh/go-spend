@@ -1,10 +1,12 @@
-package expenses
+package main
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"go-spend/authentication"
+	"go-spend/expenses"
 	"go-spend/log"
 	"net/http"
 	"time"
@@ -30,7 +32,7 @@ type DBConfig struct {
 // Container for all application things.
 type Application struct {
 	config      Config
-	userService UserService
+	userService authentication.UserService
 }
 
 // Create new Application to handle expenses
@@ -43,8 +45,8 @@ func NewApplication(config Config) (*Application, error) {
 	if err != nil {
 		return nil, err
 	}
-	userRepository := NewPgUserRepository()
-	userService := NewDefaultUserService(db, userRepository)
+	userRepository := expenses.NewPgUserRepository()
+	userService := authentication.NewDefaultUserService(db, &authentication.BCryptPasswordEncoder{}, userRepository)
 
 	return &Application{config: config, userService: userService}, nil
 }
@@ -62,14 +64,14 @@ func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Not supported", http.StatusBadRequest)
 		return
 	}
-	var createUserRequest CreateUserRequest
+	var createUserRequest expenses.CreateUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
 		http.Error(w, "Incorrect body", http.StatusBadRequest)
 		return
 	}
 	createdUser, err := a.userService.Create(r.Context(), createUserRequest)
 	if err != nil {
-		if err == ErrEmailAlreadyExists {
+		if err == expenses.ErrEmailAlreadyExists {
 			http.Error(w, "User already exists", http.StatusBadRequest)
 			return
 		}
