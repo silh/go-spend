@@ -11,6 +11,7 @@ import (
 
 const (
 	IncorrectBody           = "Incorrect body"
+	IncorrectValues         = "Incorrect values provided"
 	UserOrPasswordIncorrect = "User or password incorrect"
 	ServerError             = "Server Error"
 	Forbidden               = "Forbidden"
@@ -94,11 +95,14 @@ func (router *Router) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (router *Router) handleGroups(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodPost:
+		router.handleCreateGroup(w, r)
+	case http.MethodPut:
+		router.handleAddToGroup(w, r)
+	default:
 		http.Error(w, "Not found", http.StatusNotFound)
-		return
 	}
-	router.handleCreateGroup(w, r)
 }
 
 func (router *Router) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +217,34 @@ func (router *Router) handleCreateExpense(
 		http.Error(w, ServerError, http.StatusInternalServerError)
 		log.Error("couldn't write body for create expense response - %s", err)
 	}
+}
+
+func (router *Router) handleAddToGroup(w http.ResponseWriter, r *http.Request) {
+	user, err := extractUser(r)
+	if err != nil {
+		http.Error(w, Forbidden, http.StatusForbidden)
+		return
+	}
+	var addRequest expenses.AddToGroupRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&addRequest); err != nil {
+		http.Error(w, IncorrectBody, http.StatusBadRequest)
+		return
+	}
+	if user.GroupID != addRequest.GroupID {
+		http.Error(w, IncorrectBody, http.StatusForbidden)
+		return
+	}
+	if err = router.groupService.AddUserToGroup(r.Context(), addRequest); err != nil {
+		if err == expenses.ErrUserOrGroupNotFound || err == expenses.ErrUserIsInAnotherGroup {
+			http.Error(w, IncorrectValues, http.StatusBadRequest)
+			return
+		}
+		http.Error(w, ServerError, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func extractUser(r *http.Request) (authentication.UserContext, error) {

@@ -44,6 +44,7 @@ var (
 	ErrGroupNameAlreadyExists = errors.New("group with such name already exists")
 	ErrGroupNotFound          = errors.New("group not found")
 	ErrUserIsInAnotherGroup   = errors.New("user is already in another group")
+	ErrUserOrGroupNotFound    = errors.New("user or group not found")
 )
 
 // Group repository that stores info in Postgres DB
@@ -68,8 +69,13 @@ func (p *PgGroupRepository) Create(ctx context.Context, db pgxtype.Querier, grou
 
 func (p *PgGroupRepository) AddUserToGroup(ctx context.Context, db pgxtype.Querier, userID uint, groupID uint) error {
 	if _, err := db.Exec(ctx, addUserToGroup, userID, groupID); err != nil {
-		if pfError, ok := err.(*pgconn.PgError); ok && pfError.Code == pg.UniqueViolation {
-			return ErrUserIsInAnotherGroup
+		if pfError, ok := err.(*pgconn.PgError); ok {
+			switch pfError.Code {
+			case pg.ForeignKeyViolation: // Can be replaces with set in case there are more cases.
+				return ErrUserOrGroupNotFound
+			case pg.UniqueViolation:
+				return ErrUserIsInAnotherGroup
+			}
 		}
 		return err
 	}

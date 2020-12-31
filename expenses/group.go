@@ -18,7 +18,7 @@ type GroupResponse struct {
 	Users []UserResponse      `json:"users"`
 }
 
-// A request to create a Group
+// CreateGroupRequest is a JSON request to create a Group
 type CreateGroupRequest struct {
 	Name      util.NonEmptyString `json:"name"`
 	CreatorID uint                `json:"creatorId"`
@@ -36,7 +36,6 @@ func (c *CreateGroupRequest) UnmarshalJSON(data []byte) error {
 	var req createGroupRequest
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	decoder.UseNumber()
 	var err error
 	if err = decoder.Decode(&req); err != nil {
 		return err
@@ -47,4 +46,10 @@ func (c *CreateGroupRequest) UnmarshalJSON(data []byte) error {
 	}
 	c.CreatorID = req.CreatorID
 	return nil
+}
+
+// AddToGroupRequest is a JSON request to add user to a group
+type AddToGroupRequest struct {
+	UserID  uint `json:"userId"`
+	GroupID uint `json:"groupId"`
 }

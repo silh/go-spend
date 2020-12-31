@@ -73,6 +73,35 @@ func TestAddUserToGroup(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestAddUserToNonExistentGroup(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	userRepository := expenses.NewPgUserRepository()
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group
+	user, err := userRepository.Create(ctx, pgdb, expenses.CreateUserRequest{Email: "some@mail.ru", Password: "12xczc"})
+	require.NoError(t, err)
+	err = groupRepository.AddUserToGroup(ctx, pgdb, user.ID, 1)
+	require.EqualError(t, err, expenses.ErrUserOrGroupNotFound.Error())
+}
+
+func TestAddNonExistentUserToGroup(t *testing.T) {
+	ctx := context.Background()
+	cleanUpDB(t, ctx)
+
+	groupRepository := expenses.NewPgGroupRepository()
+
+	// create user and group
+	groupName := util.NonEmptyString("myGroup")
+	group, err := groupRepository.Create(ctx, pgdb, groupName)
+	require.NoError(t, err)
+
+	err = groupRepository.AddUserToGroup(ctx, pgdb, 1, group.ID)
+	require.EqualError(t, err, expenses.ErrUserOrGroupNotFound.Error())
+}
+
 func TestFindGroupByUserID(t *testing.T) {
 	ctx := context.Background()
 	cleanUpDB(t, ctx)

@@ -37,7 +37,7 @@ func (m *mockGroupRepository) FindByIDWithUsers(ctx context.Context, db pgxtype.
 	return args.Get(0).(expenses.GroupResponse), args.Error(1)
 }
 
-func (m *mockGroupRepository) FindByUserID(ctx context.Context, db pgxtype.Querier, userID uint) (expenses.Group, error) {
+func (m *mockGroupRepository) FindByUserID(_ context.Context, _ pgxtype.Querier, _ uint) (expenses.Group, error) {
 	panic("implement me")
 }
 
@@ -50,7 +50,7 @@ type mockTx struct {
 	mock.Mock
 }
 
-func (m *mockTx) Begin(ctx context.Context) (pgx.Tx, error) {
+func (m *mockTx) Begin(_ context.Context) (pgx.Tx, error) {
 	panic("implement me")
 }
 
@@ -59,15 +59,15 @@ func (m *mockTx) Commit(ctx context.Context) error {
 	return args.Error(0)
 }
 
-func (m *mockTx) Rollback(ctx context.Context) error {
+func (m *mockTx) Rollback(_ context.Context) error {
 	return nil
 }
 
-func (m *mockTx) CopyFrom(ctx context.Context, tableName pgx.Identifier, columnNames []string, rowSrc pgx.CopyFromSource) (int64, error) {
+func (m *mockTx) CopyFrom(_ context.Context, _ pgx.Identifier, _ []string, _ pgx.CopyFromSource) (int64, error) {
 	panic("implement me")
 }
 
-func (m *mockTx) SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults {
+func (m *mockTx) SendBatch(_ context.Context, _ *pgx.Batch) pgx.BatchResults {
 	panic("implement me")
 }
 
@@ -75,23 +75,23 @@ func (m *mockTx) LargeObjects() pgx.LargeObjects {
 	panic("implement me")
 }
 
-func (m *mockTx) Prepare(ctx context.Context, name, sql string) (*pgconn.StatementDescription, error) {
+func (m *mockTx) Prepare(_ context.Context, _, _ string) (*pgconn.StatementDescription, error) {
 	panic("implement me")
 }
 
-func (m *mockTx) Exec(ctx context.Context, sql string, arguments ...interface{}) (commandTag pgconn.CommandTag, err error) {
+func (m *mockTx) Exec(_ context.Context, _ string, _ ...interface{}) (commandTag pgconn.CommandTag, err error) {
 	panic("implement me")
 }
 
-func (m *mockTx) Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error) {
+func (m *mockTx) Query(_ context.Context, _ string, _ ...interface{}) (pgx.Rows, error) {
 	panic("implement me")
 }
 
-func (m *mockTx) QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row {
+func (m *mockTx) QueryRow(_ context.Context, _ string, _ ...interface{}) pgx.Row {
 	panic("implement me")
 }
 
-func (m *mockTx) QueryFunc(ctx context.Context, sql string, args []interface{}, scans []interface{}, f func(pgx.QueryFuncRow) error) (pgconn.CommandTag, error) {
+func (m *mockTx) QueryFunc(_ context.Context, _ string, _ []interface{}, _ []interface{}, _ func(pgx.QueryFuncRow) error) (pgconn.CommandTag, error) {
 	panic("implement me")
 }
 
@@ -284,6 +284,52 @@ func TestGroupByID(t *testing.T) {
 
 	// when
 	groupResponse, err := groupService.FindByID(ctx, id)
+
+	// then
 	require.NoError(t, err)
 	assert.Equal(t, expectedGroup, groupResponse)
+}
+
+func TestDefaultGroupServiceAddUserToGroup(t *testing.T) {
+	// given
+	ctx := context.Background()
+
+	db := new(mockTxQuerier)
+	userRepository := new(mockUserRepository)
+	groupRepository := new(mockGroupRepository)
+	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
+	addToGroupRequest := expenses.AddToGroupRequest{
+		UserID:  11123,
+		GroupID: 214,
+	}
+	groupRepository.On("AddUserToGroup", ctx, db, addToGroupRequest.UserID, addToGroupRequest.GroupID).
+		Return(nil)
+
+	// when
+	err := groupService.AddUserToGroup(ctx, addToGroupRequest)
+
+	// then
+	require.NoError(t, err)
+}
+
+func TestDefaultGroupServiceAddUserToGroupErrorPropagated(t *testing.T) {
+	// given
+	ctx := context.Background()
+
+	db := new(mockTxQuerier)
+	userRepository := new(mockUserRepository)
+	groupRepository := new(mockGroupRepository)
+	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
+	addToGroupRequest := expenses.AddToGroupRequest{
+		UserID:  11123,
+		GroupID: 214,
+	}
+	groupRepository.On("AddUserToGroup", ctx, db, addToGroupRequest.UserID, addToGroupRequest.GroupID).
+		Return(errors.New("expected"))
+
+	// when
+	err := groupService.AddUserToGroup(ctx, addToGroupRequest)
+
+	// then
+	require.Error(t, err)
 }

@@ -11,7 +11,6 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/onsi/ginkgo v1.14.2 // indirect
 	github.com/onsi/gomega v1.10.4 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	github.com/testcontainers/testcontainers-go v0.9.0
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9

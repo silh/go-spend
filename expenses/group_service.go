@@ -13,6 +13,8 @@ type GroupService interface {
 	Create(ctx context.Context, request CreateGroupRequest) (GroupResponse, error)
 	// Find Group by its ID
 	FindByID(ctx context.Context, id uint) (GroupResponse, error)
+	// AddUserToGroup adds user to an existing group
+	AddUserToGroup(ctx context.Context, addRequest AddToGroupRequest) error
 }
 
 type DefaultGroupService struct {
@@ -71,9 +73,9 @@ func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupReq
 }
 
 func (d *DefaultGroupService) FindByID(ctx context.Context, id uint) (GroupResponse, error) {
-	group, err := d.groupRepository.FindByIDWithUsers(ctx, d.db, id)
-	if err != nil {
-		return GroupResponse{}, err
-	}
-	return group, nil
+	return d.groupRepository.FindByIDWithUsers(ctx, d.db, id)
+}
+
+func (d *DefaultGroupService) AddUserToGroup(ctx context.Context, addRequest AddToGroupRequest) error {
+	return d.groupRepository.AddUserToGroup(ctx, d.db, addRequest.UserID, addRequest.GroupID)
 }

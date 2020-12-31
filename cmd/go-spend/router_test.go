@@ -53,6 +53,11 @@ func (m *mockGroupService) FindByID(_ context.Context, _ uint) (expenses.GroupRe
 	panic("implement me")
 }
 
+func (m *mockGroupService) AddUserToGroup(ctx context.Context, addRequest expenses.AddToGroupRequest) error {
+	args := m.Called(ctx, addRequest)
+	return args.Error(0)
+}
+
 type mockAuthorizer struct {
 	mock.Mock
 }
@@ -778,6 +783,256 @@ func TestCreateExpenseServiceFailsServerError(t *testing.T) {
 	}
 	expensesService.On("Create", mock.Anything, mock.MatchedBy(checkFunc)).
 		Return(expenses.ExpenseResponse{}, errors.New("expected"))
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
+}
+
+func TestAddToGroup(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 22,
+	}
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	groupService.On("AddUserToGroup", reqWithContext.Context(), addRequest).Return(nil)
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestAddToGroupForbiddenWithoutUserContext(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestAddToGroupForbiddenWithWrongStuffInContext(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", "rrrr")) // this should never happen
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestAddToGroupIncorrectBodyBadRequest(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 22,
+	}
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer([]byte("data")))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestAddToGroupDifferentGroupOfCallerForbidden(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 10,
+	}
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestAddToGroupErrUserOrGroupNotFoundBadRequest(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 22,
+	}
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	groupService.On("AddUserToGroup", reqWithContext.Context(), addRequest).
+		Return(expenses.ErrUserOrGroupNotFound)
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestAddToGroupErrUserIsInAnotherGroupBadRequest(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 22,
+	}
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	groupService.On("AddUserToGroup", reqWithContext.Context(), addRequest).
+		Return(expenses.ErrUserIsInAnotherGroup)
+
+	// when
+	router.ServeHTTP(recorder, reqWithContext)
+
+	// then
+	assert.Equal(t, http.StatusBadRequest, recorder.Code)
+}
+
+func TestAddToGroupOtherErrServerError(t *testing.T) {
+	// given
+	groupService := new(mockGroupService)
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockExpensesService),
+		groupService,
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	userContext := authentication.UserContext{
+		UserID:  1,
+		GroupID: 22,
+	}
+	addRequest := expenses.AddToGroupRequest{
+		UserID:  2,
+		GroupID: 22,
+	}
+	data, err := json.Marshal(&addRequest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/groups", bytes.NewBuffer(data))
+	reqWithContext := req.WithContext(context.WithValue(req.Context(), "user", userContext))
+	recorder := httptest.NewRecorder()
+
+	groupService.On("AddUserToGroup", reqWithContext.Context(), addRequest).
+		Return(errors.New("expected"))
 
 	// when
 	router.ServeHTTP(recorder, reqWithContext)
