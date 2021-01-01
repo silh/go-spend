@@ -2,12 +2,29 @@ package expenses_test
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgtype/pgxtype"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go-spend/expenses"
 	"go-spend/util"
 	"testing"
 )
+
+type mockExpensesRepository struct {
+	mock.Mock
+}
+
+func (m *mockExpensesRepository) Create(ctx context.Context, db pgxtype.Querier, req expenses.NewExpense) (expenses.Expense, error) {
+	args := m.Called(ctx, db, req)
+	return args.Get(0).(expenses.Expense), args.Error(1)
+}
+
+func (m *mockExpensesRepository) CreateShares(ctx context.Context, db pgxtype.Querier, req expenses.CreateExpenseShares) error {
+	args := m.Called(ctx, db, req)
+	return args.Error(0)
+}
 
 // integration tests
 func TestDefaultServiceCreateExpense(t *testing.T) {
@@ -133,6 +150,125 @@ func TestDefaultServiceCreateExpense(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestExpensesServiceFailedToStartTx(t *testing.T) {
+	// given
+	ctx := context.Background()
+	db := new(mockTxQuerier)
+	service := expenses.NewDefaultService(db, new(mockGroupRepository), new(mockExpensesRepository))
+
+	db.On("Begin", ctx).Return(nil, errors.New("expected"))
+
+	// when
+	_, err := service.Create(ctx, expenses.CreateExpenseContext{})
+	require.EqualError(t, err, "expected")
+}
+
+func TestExpensesServiceExpensesCreateFails(t *testing.T) {
+	// given
+	ctx := context.Background()
+	db := new(mockTxQuerier)
+	tx := new(mockTx)
+	expensesRepository := new(mockExpensesRepository)
+	groupRepository := new(mockGroupRepository)
+	service := expenses.NewDefaultService(db, groupRepository, expensesRepository)
+
+	expenseContext := expenses.CreateExpenseContext{
+		UserID:  1,
+		GroupID: 2,
+		Amount:  10.0,
+		Shares: expenses.ExpenseShares{
+			1: 100,
+		},
+	}
+	db.On("Begin", ctx).Return(tx, nil)
+	groupRepository.On("FindByIDWithUsers", ctx, tx, expenseContext.GroupID).
+		Return(expenses.GroupResponse{
+			ID:   2,
+			Name: "2",
+			Users: []expenses.UserResponse{
+				{
+					ID:    1,
+					Email: "mm@mm.mm",
+				},
+			},
+		}, nil)
+	expensesRepository.On("Create", ctx, tx, mock.Anything).
+		Return(expenses.Expense{}, errors.New("expected"))
+
+	// when
+	_, err := service.Create(ctx, expenseContext)
+
+	// then
+	require.EqualError(t, err, "expected")
+}
+
+func TestExpensesServiceCreateSharesFails(t *testing.T) {
+	// given
+	ctx := context.Background()
+	db := new(mockTxQuerier)
+	tx := new(mockTx)
+	expensesRepository := new(mockExpensesRepository)
+	groupRepository := new(mockGroupRepository)
+	service := expenses.NewDefaultService(db, groupRepository, expensesRepository)
+	expenseContext := expenses.CreateExpenseContext{
+		UserID:  1,
+		GroupID: 2,
+		Amount:  10.0,
+		Shares: expenses.ExpenseShares{
+			1: 100,
+		},
+	}
+
+	db.On("Begin", ctx).Return(tx, nil)
+	groupRepository.On("FindByIDWithUsers", ctx, tx, expenseContext.GroupID).
+		Return(expenses.GroupResponse{
+			ID:   2,
+			Name: "2",
+			Users: []expenses.UserResponse{
+				{
+					ID:    1,
+					Email: "mm@mm.mm",
+				},
+			},
+		}, nil)
+	expensesRepository.On("Create", ctx, tx, mock.Anything).
+		Return(expenses.Expense{}, errors.New("expected"))
+
+	// when
+	_, err := service.Create(ctx, expenseContext)
+
+	// then
+	require.EqualError(t, err, "expected")
+}
+
+func TestExpensesServiceFindUsersFails(t *testing.T) {
+	// given
+	ctx := context.Background()
+	db := new(mockTxQuerier)
+	tx := new(mockTx)
+	expensesRepository := new(mockExpensesRepository)
+	groupRepository := new(mockGroupRepository)
+	service := expenses.NewDefaultService(db, groupRepository, expensesRepository)
+	expenseContext := expenses.CreateExpenseContext{
+		UserID:  1,
+		GroupID: 2,
+		Amount:  10.0,
+		Shares: expenses.ExpenseShares{
+			1: 100,
+		},
+	}
+
+	db.On("Begin", ctx).Return(tx, nil)
+	groupRepository.On("FindByIDWithUsers", ctx, tx, expenseContext.GroupID).
+		Return(expenses.GroupResponse{}, errors.New("expected"))
+
+	// when
+	_, err := service.Create(ctx, expenseContext)
+
+	// then
+	require.EqualError(t, err, "expected")
 }
 
 func createProperUser(

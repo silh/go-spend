@@ -47,11 +47,11 @@ func (d *DefaultService) Create(ctx context.Context, createExpenseContext Create
 		UserID: createExpenseContext.UserID,
 		Amount: createExpenseContext.Amount,
 	}
-	createdExpense, err := d.expensesRepository.Create(ctx, tx, newExpense)
+	err = d.validateUsersInContext(ctx, createExpenseContext, tx)
 	if err != nil {
 		return ExpenseResponse{}, err
 	}
-	err = d.validateUsersInContext(ctx, createExpenseContext, tx)
+	createdExpense, err := d.expensesRepository.Create(ctx, tx, newExpense)
 	if err != nil {
 		return ExpenseResponse{}, err
 	}
