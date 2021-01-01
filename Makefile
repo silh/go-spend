@@ -1,4 +1,4 @@
-all: fmt
+app: fmt
 	@go build ./cmd/go-spend
 
 test: fmt

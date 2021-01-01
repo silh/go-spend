@@ -47,11 +47,11 @@ type Application struct {
 	server *http.Server
 }
 
-// Create new Application to handle expenses
-func NewApplication(config Config) (*Application, error) {
+// NewApplication does all necessary preparations to start the application server
+func NewApplication(config *Config) (*Application, error) {
 	ctx := context.Background()
-	if config.Port > 65536 || config.Port == 0 {
-		return nil, fmt.Errorf("incorrect port value %d, should be between 1 and 65536", config.Port)
+	if config.Port < 1 || config.Port > 65535 {
+		return nil, fmt.Errorf("incorrect port value %d, should be between 1 and 65535", config.Port)
 	}
 	db, err := prepareDB(ctx, config)
 	if err != nil {
@@ -101,7 +101,7 @@ func (a *Application) Stop() error {
 	return a.server.Shutdown(ctx)
 }
 
-func prepareDB(ctx context.Context, config Config) (*pgxpool.Pool, error) {
+func prepareDB(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	if config.DB.SchemaLocation == "" {
 		return nil, errors.New("schema location is not specified")
 	}

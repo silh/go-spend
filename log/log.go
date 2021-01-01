@@ -47,7 +47,7 @@ func Error(msg string, args ...interface{}) {
 
 func Fatal(msg string, args ...interface{}) {
 	if Level <= ErrorLvl {
-		log.Printf("[FATAL] "+msg, args...)
+		log.Fatalf("[FATAL] "+msg, args...)
 	}
 }
 
