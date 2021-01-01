@@ -22,7 +22,10 @@ services:
       test: ['CMD', 'curl', '-f', 'http://localhost:5432']
   go-spend:
     image: 'go-spend:latest'
-    command: ['/go-spend', '--db-connection-string', 'postgresql://postgres:5432/expenses?user=user&password=password']
+    command: ['/go-spend',
+              '--db-connection-string', 'postgresql://postgres:5432/expenses?user=user&password=password',
+              '--redis-address', 'redis:6379',
+              '--redis-password', 'password']
     ports:
       - 8080:8080
     restart: 'on-failure'

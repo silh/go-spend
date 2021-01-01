@@ -53,7 +53,7 @@ func TestNewApplication(t *testing.T) {
 		errC <- application.Start()
 	}()
 	serverAddr := fmt.Sprintf("http://localhost:%d", port)
-	healthCheck(t, serverAddr)
+	healthCheck(t, serverAddr, 3*time.Second)
 
 	//Check if there was an error when starting
 	select {
@@ -63,27 +63,7 @@ func TestNewApplication(t *testing.T) {
 	}
 
 	//create 4 users, 2 groups
-	user1 := createUser(t, serverAddr, "1")
-	user2 := createUser(t, serverAddr, "2")
-	user3 := createUser(t, serverAddr, "3")
-	user4 := createUser(t, serverAddr, "4")
-	user1.authenticate(t)
-	user4.authenticate(t)
-	groupName1 := "gr1"
-	groupName2 := "group2"
-	group1ID := user1.createGroup(t, groupName1)
-	user4.createGroup(t, groupName2)
-	user1.authenticate(t) // due to current limitations need to reauthenticate after group creation
-	user4.authenticate(t)
-	//add users to group 1
-	user1.addUserToGroup(t, user2.ID, group1ID)
-	user2.authenticate(t)
-	user2.addUserToGroup(t, user3.ID, group1ID)
-	user3.authenticate(t)
-	// start paying
-	user1.payForPizza(t)
-	user2.payForCoffee(t)
-	checkBalances(t, user1, user2, user3, err)
+	checkApplication(t, serverAddr)
 
 	err = application.Stop()
 	if err != nil && err != http.ErrServerClosed {
@@ -146,7 +126,7 @@ func TestFailsWithIncorrectSchemaLocation(t *testing.T) {
 	assert.Nil(t, application)
 }
 
-func checkBalances(t *testing.T, user1 systemUser, user2 systemUser, user3 systemUser, err error) {
+func checkBalances(t *testing.T, user1 systemUser, user2 systemUser, user3 systemUser) {
 	balance1 := user1.requestBalance(t)
 	balance2 := user2.requestBalance(t)
 	balance3 := user3.requestBalance(t)
@@ -165,11 +145,10 @@ func checkBalances(t *testing.T, user1 systemUser, user2 systemUser, user3 syste
 	user3expectedBalance := expenses.Balance{
 		1: -pizzaPrice * 0.34,
 	}
-	require.NoError(t, err)
 	assert.InDelta(t, user3expectedBalance[1], balance3[1], 0.01)
 }
 
-func healthCheck(t *testing.T, serverAddr string) {
+func healthCheck(t *testing.T, serverAddr string, wait time.Duration) {
 	finishPolling := make(chan struct{})
 	healthC := make(chan struct{})
 	go func() { // poll for 200 OK
@@ -189,7 +168,7 @@ func healthCheck(t *testing.T, serverAddr string) {
 	}()
 	// wait for healthcheck
 	select {
-	case <-time.After(3 * time.Second):
+	case <-time.After(wait):
 		t.Error("didn't get 200 OK in time")
 		close(finishPolling)
 	case <-healthC:
