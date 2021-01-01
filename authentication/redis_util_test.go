@@ -7,17 +7,19 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const redisImage = "redis:6.0.9-alpine3.12"
+const (
+	redisImage    = "redis:6.0.9-alpine3.12"
+	redisPassword = "password"
+)
 
 var (
-	redisPassword = "password"
-	redisClient   = redis.NewClient(&redis.Options{
+	redisClient = redis.NewClient(&redis.Options{
 		Password: redisPassword,
 		Addr:     createRedisContainer(context.Background()),
 	})
 )
 
-// Creates PG container, applies necessary schema. If there is any error - it will panic
+// Creates Redis container and return its address
 func createRedisContainer(ctx context.Context) string {
 	redisC, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{

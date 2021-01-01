@@ -21,7 +21,13 @@ type PasswordChecker interface {
 	Check(hashed string, toTest string) bool
 }
 
+// BCryptPasswordEncoder is a PasswordEncoder that uses BCrypt algorithm
 type BCryptPasswordEncoder struct {
+}
+
+// NewBCryptPasswordEncoder creates new instance of BCryptPasswordEncoder
+func NewBCryptPasswordEncoder() *BCryptPasswordEncoder {
+	return &BCryptPasswordEncoder{}
 }
 
 func (*BCryptPasswordEncoder) Encode(password string) (string, error) {

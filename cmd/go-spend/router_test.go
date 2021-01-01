@@ -1272,6 +1272,48 @@ func TestGetBalanceServiceReturnsError(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, recorder.Code)
 }
 
+func TestRouterHealth(t *testing.T) {
+	// given
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockBalanceService),
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusOK, recorder.Code)
+}
+
+func TestRouterHealthWithIncorrectHTTPMethod(t *testing.T) {
+	// given
+	router := main.NewRouter(
+		new(mockAuthenticator),
+		new(mockAuthorizer),
+		new(mockBalanceService),
+		new(mockExpensesService),
+		new(mockGroupService),
+		new(mockUserService),
+	)
+	// that is done by authorizer in real app
+	req := httptest.NewRequest(http.MethodPut, "/health", nil)
+	recorder := httptest.NewRecorder()
+
+	// when
+	router.ServeHTTP(recorder, req)
+
+	// then
+	assert.Equal(t, http.StatusNotFound, recorder.Code)
+}
+
 func prepareValidJWT(t *testing.T, accessAlg *jwt.Algorithm) (string, string) {
 	claims := jwt.NewClaims()
 	accessUUID := "uuid-id"

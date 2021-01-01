@@ -57,6 +57,7 @@ func NewRouter(
 	mux.Handle("/groups", r.authorizer.Authorize(r.groups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
 	mux.Handle("/balance", r.authorizer.Authorize(r.balance))
+	mux.Handle("/health", http.HandlerFunc(r.health))
 	return r
 }
 
@@ -141,6 +142,7 @@ func (router *Router) createGroup(w http.ResponseWriter, r *http.Request) {
 		handleGroupCreationErrors(w, err, createGroupContext)
 		return
 	}
+	log.Info("user %d has created a group %d", userContext.UserID, createdGroup.ID)
 	w.WriteHeader(http.StatusCreated)
 	if err = json.NewEncoder(w).Encode(createdGroup); err != nil {
 		http.Error(w, ServerError, http.StatusInternalServerError)
@@ -196,7 +198,7 @@ func handleGroupCreationErrors(
 	}
 }
 
-// expenses handles all request to /expenses ednpoint. At the moment that's just Create Expense
+// expenses handles all request to /expenses endpoint. At the moment that's just Create Expense
 func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 	var err error
 	userContext, err := extractUser(r)
@@ -241,6 +243,7 @@ func (router *Router) createExpense(
 		http.Error(w, ServerError, http.StatusInternalServerError)
 		return
 	}
+	log.Trace("created new expense for user %d, group %d", userContext.UserID, userContext.GroupID)
 	w.WriteHeader(http.StatusCreated)
 	if err = json.NewEncoder(w).Encode(&created); err != nil {
 		http.Error(w, ServerError, http.StatusInternalServerError)
@@ -251,7 +254,7 @@ func (router *Router) createExpense(
 // addToGroup prepares incoming body and starts procedure to add user into a group
 // If everything is correct - responds with 200 without a body
 func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
-	user, err := extractUser(r)
+	userContext, err := extractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -263,7 +266,7 @@ func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, IncorrectBody, http.StatusBadRequest)
 		return
 	}
-	if user.GroupID != addRequest.GroupID {
+	if userContext.GroupID != addRequest.GroupID {
 		http.Error(w, IncorrectBody, http.StatusForbidden)
 		return
 	}
@@ -275,6 +278,7 @@ func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ServerError, http.StatusInternalServerError)
 		return
 	}
+	log.Info("user %d add user %d to group %d", userContext.UserID, addRequest.UserID, addRequest.GroupID)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -300,6 +304,15 @@ func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, ServerError, http.StatusInternalServerError)
 		log.Error("couldn't write balance response for the user - %s", err)
 	}
+}
+
+// health is simplest health check
+func (router *Router) health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, NotFound, http.StatusNotFound)
+		return
+	}
+	w.WriteHeader(200)
 }
 
 // extractUser from request. It should be put there by Authorizer

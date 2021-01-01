@@ -7,6 +7,10 @@ import (
 	"testing"
 )
 
+func TestNewBCryptPasswordEncoder(t *testing.T) {
+	assert.NotNil(t, authentication.NewBCryptPasswordEncoder())
+}
+
 func TestBCryptPasswordEncoder(t *testing.T) {
 	tests := []struct {
 		name string

@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"go-spend/authentication"
+	"go-spend/authentication/jwt"
 	"go-spend/expenses"
 	"go-spend/log"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
@@ -15,24 +18,33 @@ import (
 // Config of the Application
 type Config struct {
 	Port                 uint
-	ServerRequestTimeout uint
+	ServerRequestTimeout time.Duration
 	DB                   DBConfig
+	Redis                RedisConfig
+	Security             SecurityConfig
 }
 
-// Configuration of DB connection
+// DBConfig contains information about DB connectivity
 type DBConfig struct {
 	ConnectionString string
-	User             string
-	Password         string
-	Name             string
-	SocketTimeout    time.Duration
-	ConnectTimeout   time.Duration
+	SchemaLocation   string
 }
 
-// Container for all application things.
+// RedisConfig contains properties for redis connection
+type RedisConfig struct {
+	Addr     string
+	Password string
+}
+
+// SecurityConfig contains keys for generated tokens
+type SecurityConfig struct {
+	AccessSecret  string
+	RefreshSecret string
+}
+
+// Application constructs all parts and starts the work of the system
 type Application struct {
-	config      Config
-	userService authentication.UserService
+	server *http.Server
 }
 
 // Create new Application to handle expenses
@@ -41,53 +53,66 @@ func NewApplication(config Config) (*Application, error) {
 	if config.Port > 65536 || config.Port == 0 {
 		return nil, fmt.Errorf("incorrect port value %d, should be between 1 and 65536", config.Port)
 	}
-	db, err := pgxpool.Connect(ctx, config.DB.ConnectionString)
+	db, err := prepareDB(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+	accessAlg := jwt.HmacSha256(config.Security.AccessSecret)
+	refreshAlg := jwt.HmacSha256(config.Security.RefreshSecret)
+	tokenCreator := authentication.NewTokenCreator(accessAlg, refreshAlg)
+	redisClient := redis.NewClient(&redis.Options{Addr: config.Redis.Addr, Password: config.Redis.Password})
+	tokenRepository := authentication.NewRedisTokenRepository(redisClient)
+	passwordEncoder := authentication.NewBCryptPasswordEncoder()
 	userRepository := expenses.NewPgUserRepository()
+	authService := authentication.NewAuthService(db, tokenCreator, tokenRepository, passwordEncoder, userRepository)
+
+	authorizer := authentication.NewJWTAuthorizer(accessAlg, tokenRepository)
+
+	repository := expenses.NewPgBalanceRepository()
+	balanceService := expenses.NewDefaultBalanceService(db, repository)
+
+	groupRepository := expenses.NewPgGroupRepository()
+	expensesRepository := expenses.NewPgRepository()
+	expensesServices := expenses.NewDefaultService(db, groupRepository, expensesRepository)
+
+	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
+
 	userService := authentication.NewDefaultUserService(db, &authentication.BCryptPasswordEncoder{}, userRepository)
 
-	return &Application{config: config, userService: userService}, nil
+	router := NewRouter(authService, authorizer, balanceService, expensesServices, groupService, userService)
+	server := &http.Server{
+		Addr:        fmt.Sprintf(":%d", config.Port),
+		Handler:     router,
+		ReadTimeout: config.ServerRequestTimeout,
+	}
+	return &Application{server: server}, nil
 }
 
+// Start a server and block until finished
 func (a *Application) Start() error {
-	mux := http.NewServeMux()
-	mux.Handle("/users", http.HandlerFunc(a.handleCreateUser))
-
-	log.Info("Starting a server on port 8080...")
-	return http.ListenAndServe(":8080", mux)
+	log.Info("Starting a server on %s...", a.server.Addr)
+	return a.server.ListenAndServe()
 }
 
-func (a *Application) handleCreateUser(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Not supported", http.StatusBadRequest)
-		return
+func (a *Application) Stop() error {
+	log.Info("Stopping the server...")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return a.server.Shutdown(ctx)
+}
+
+func prepareDB(ctx context.Context, config Config) (*pgxpool.Pool, error) {
+	if config.DB.SchemaLocation == "" {
+		return nil, errors.New("schema location is not specified")
 	}
-	var createUserRequest expenses.CreateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&createUserRequest); err != nil {
-		http.Error(w, "Incorrect body", http.StatusBadRequest)
-		return
-	}
-	createdUser, err := a.userService.Create(r.Context(), createUserRequest)
+	db, err := pgxpool.Connect(ctx, config.DB.ConnectionString)
+	schema, err := ioutil.ReadFile(config.DB.SchemaLocation)
 	if err != nil {
-		if err == expenses.ErrEmailAlreadyExists {
-			http.Error(w, "User already exists", http.StatusBadRequest)
-			return
-		}
-		log.Error("error while trying to create a user with email %s - %s", createUserRequest.Email, err)
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return
+		return nil, err
 	}
-	w.WriteHeader(http.StatusCreated)
-	if err = json.NewEncoder(w).Encode(createdUser); err != nil {
-		log.Error(
-			"Could not write body to the create user response with email %s - %s",
-			createUserRequest.Email,
-			err,
-		)
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		return
+	_, err = db.Exec(ctx, string(schema))
+	if err != nil {
+		return nil, err
 	}
-	log.Info("Created a new user - %s", createdUser.Email)
+	return db, nil
 }
