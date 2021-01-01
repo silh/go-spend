@@ -45,13 +45,14 @@ type SecurityConfig struct {
 // Application constructs all parts and starts the work of the system
 type Application struct {
 	server *http.Server
+	db     *pgxpool.Pool
 }
 
-// Create new Application to handle expenses
-func NewApplication(config Config) (*Application, error) {
+// NewApplication does all necessary preparations to start the application server
+func NewApplication(config *Config) (*Application, error) {
 	ctx := context.Background()
-	if config.Port > 65536 || config.Port == 0 {
-		return nil, fmt.Errorf("incorrect port value %d, should be between 1 and 65536", config.Port)
+	if config.Port < 1 || config.Port > 65535 {
+		return nil, fmt.Errorf("incorrect port value %d, should be between 1 and 65535", config.Port)
 	}
 	db, err := prepareDB(ctx, config)
 	if err != nil {
@@ -85,7 +86,7 @@ func NewApplication(config Config) (*Application, error) {
 		Handler:     router,
 		ReadTimeout: config.ServerRequestTimeout,
 	}
-	return &Application{server: server}, nil
+	return &Application{server: server, db: db}, nil
 }
 
 // Start a server and block until finished
@@ -94,18 +95,23 @@ func (a *Application) Start() error {
 	return a.server.ListenAndServe()
 }
 
+// Stop the server and close connections
 func (a *Application) Stop() error {
 	log.Info("Stopping the server...")
+	defer a.db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return a.server.Shutdown(ctx)
 }
 
-func prepareDB(ctx context.Context, config Config) (*pgxpool.Pool, error) {
+func prepareDB(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 	if config.DB.SchemaLocation == "" {
 		return nil, errors.New("schema location is not specified")
 	}
 	db, err := pgxpool.Connect(ctx, config.DB.ConnectionString)
+	if err != nil {
+		return nil, err
+	}
 	schema, err := ioutil.ReadFile(config.DB.SchemaLocation)
 	if err != nil {
 		return nil, err

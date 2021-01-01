@@ -1,4 +1,4 @@
-all: fmt
+app: fmt
 	@go build ./cmd/go-spend
 
 test: fmt
@@ -6,3 +6,6 @@ test: fmt
 
 fmt:
 	@go fmt ./...
+
+docker:
+	@docker build -t go-spend .

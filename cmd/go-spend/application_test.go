@@ -44,7 +44,7 @@ func TestNewApplication(t *testing.T) {
 	config := defaultConfig
 	config.Port = uint(port)
 
-	application, err := main.NewApplication(config)
+	application, err := main.NewApplication(&config)
 	require.NoError(t, err)
 	assert.NotNil(t, application)
 
@@ -89,6 +89,61 @@ func TestNewApplication(t *testing.T) {
 	if err != nil && err != http.ErrServerClosed {
 		t.Error(err)
 	}
+}
+
+func TestApplicationFailsWithIncorrectPort(t *testing.T) {
+	tests := []struct {
+		name string
+		port uint
+		err  string
+	}{
+		{
+			name: "0",
+			port: 0,
+			err:  "incorrect port value 0, should be between 1 and 65535",
+		},
+		{
+			name: "65536",
+			port: 65536,
+			err:  "incorrect port value 65536, should be between 1 and 65535",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			config := defaultConfig
+			config.Port = test.port
+			application, err := main.NewApplication(&config)
+			require.EqualError(t, err, test.err)
+			assert.Nil(t, application)
+		})
+	}
+}
+
+func TestFailsWithIncorrectDBAddress(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.ConnectionString = "uups"
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
+}
+
+func TestFailsWithoutSchemaPath(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.SchemaLocation = ""
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
+}
+
+func TestFailsWithIncorrectSchemaLocation(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.ConnectionString = "./no_schema.sql"
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
 }
 
 func checkBalances(t *testing.T, user1 systemUser, user2 systemUser, user3 systemUser, err error) {
