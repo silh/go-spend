@@ -51,6 +51,8 @@ Or:
 go test ./...
 ```
 
+If test execution is slow on docker-related tests please check VPN and network.
+
 ## Notes
 
 The simplest email check was added - it doesn't support multiple subdomains.
