@@ -45,6 +45,6 @@ func (r *CreateUserRequest) UnmarshalJSON(data []byte) error {
 
 // contains information returned when the User information is requested
 type UserResponse struct {
-	ID    uint
-	Email Email
+	ID    uint  `json:"id"`
+	Email Email `json:"email"`
 }
