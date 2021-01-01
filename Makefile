@@ -6,3 +6,6 @@ test: fmt
 
 fmt:
 	@go fmt ./...
+
+docker:
+	@docker build -t go-spend .

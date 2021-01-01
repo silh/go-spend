@@ -14,10 +14,10 @@ func init() {
 func main() {
 	application, err := NewApplication(PrepareConfig())
 	if err != nil {
-		log.FatalErr(err)
+		log.Fatal(err)
 	}
 	if err = application.Start(); err != nil && err != http.ErrServerClosed {
-		log.FatalErr(err)
+		log.Fatal(err)
 	}
 }
 
@@ -35,7 +35,7 @@ func PrepareConfig() *Config {
 	flag.StringVar(
 		&config.DB.ConnectionString,
 		"db-connection-string",
-		"postgresql://locahost:5432/expenses?user=user&password=password&socketTimeout=20",
+		"postgresql://locahost:5432/expenses?user=user&password=password",
 		"Connection string to access database",
 	)
 	flag.StringVar(

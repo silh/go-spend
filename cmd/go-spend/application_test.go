@@ -119,6 +119,33 @@ func TestApplicationFailsWithIncorrectPort(t *testing.T) {
 	}
 }
 
+func TestFailsWithIncorrectDBAddress(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.ConnectionString = "uups"
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
+}
+
+func TestFailsWithoutSchemaPath(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.SchemaLocation = ""
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
+}
+
+func TestFailsWithIncorrectSchemaLocation(t *testing.T) {
+	config := defaultConfig
+	config.Port = 8080
+	config.DB.ConnectionString = "./no_schema.sql"
+	application, err := main.NewApplication(&config)
+	require.Error(t, err)
+	assert.Nil(t, application)
+}
+
 func checkBalances(t *testing.T, user1 systemUser, user2 systemUser, user3 systemUser, err error) {
 	balance1 := user1.requestBalance(t)
 	balance2 := user2.requestBalance(t)

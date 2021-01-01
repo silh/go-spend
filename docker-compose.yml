@@ -1,0 +1,32 @@
+version: '2'
+services:
+  redis:
+    image: 'redis:6.0.9-alpine3.12'
+    ports:
+      - 6379:6379
+    command: ['redis-server', '--requirepass', 'password']
+    mem_limit: 2G
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:6379']
+  postgres:
+    image: 'postgres:13.1'
+    ports:
+      - 5432:5432
+    environment:
+      POSTGRES_USER: 'user'
+      POSTGRES_PASSWORD: 'password'
+      POSTGRES_DB: 'expenses'
+    command: ['postgres', '-c', 'fsync=off']
+    mem_limit: 1G
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:5432']
+  go-spend:
+    image: 'go-spend:latest'
+    command: ['/go-spend', '--db-connection-string', 'postgresql://postgres:5432/expenses?user=user&password=password']
+    ports:
+      - 8080:8080
+    restart: 'on-failure'
+    depends_on:
+      - redis
+      - postgres
+    mem_limit: 1G

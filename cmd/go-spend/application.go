@@ -45,6 +45,7 @@ type SecurityConfig struct {
 // Application constructs all parts and starts the work of the system
 type Application struct {
 	server *http.Server
+	db     *pgxpool.Pool
 }
 
 // NewApplication does all necessary preparations to start the application server
@@ -85,7 +86,7 @@ func NewApplication(config *Config) (*Application, error) {
 		Handler:     router,
 		ReadTimeout: config.ServerRequestTimeout,
 	}
-	return &Application{server: server}, nil
+	return &Application{server: server, db: db}, nil
 }
 
 // Start a server and block until finished
@@ -94,8 +95,10 @@ func (a *Application) Start() error {
 	return a.server.ListenAndServe()
 }
 
+// Stop the server and close connections
 func (a *Application) Stop() error {
 	log.Info("Stopping the server...")
+	defer a.db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return a.server.Shutdown(ctx)
@@ -106,6 +109,9 @@ func prepareDB(ctx context.Context, config *Config) (*pgxpool.Pool, error) {
 		return nil, errors.New("schema location is not specified")
 	}
 	db, err := pgxpool.Connect(ctx, config.DB.ConnectionString)
+	if err != nil {
+		return nil, err
+	}
 	schema, err := ioutil.ReadFile(config.DB.SchemaLocation)
 	if err != nil {
 		return nil, err

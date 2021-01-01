@@ -12,7 +12,7 @@ var defaultConfigFromFlags = &main.Config{
 	Port:                 8080,
 	ServerRequestTimeout: 20 * time.Second,
 	DB: main.DBConfig{
-		ConnectionString: "postgresql://locahost:5432/expenses?user=user&password=password&socketTimeout=20",
+		ConnectionString: "postgresql://locahost:5432/expenses?user=user&password=password",
 		SchemaLocation:   "./001_schema.sql",
 	},
 	Redis: main.RedisConfig{
