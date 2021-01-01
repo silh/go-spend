@@ -35,4 +35,6 @@ CREATE TABLE IF NOT EXISTS expenses_shares
     expense_id BIGINT   NOT NULL REFERENCES expenses (id) ON DELETE CASCADE,
     user_id    BIGINT   NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     percent    SMALLINT NOT NULL
-)
+);
+
+CREATE INDEX IF NOT EXISTS expenses_shares_user_id_idx on expenses_shares (user_id);
