@@ -3,7 +3,6 @@ package main_test
 import (
 	"context"
 	"fmt"
-	"github.com/docker/go-connections/nat"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -16,7 +15,7 @@ const (
 	pgUser     = "user"
 	pgPassword = "password"
 	pgDb       = "expenses"
-	pgPort     = nat.Port("5432/tcp")
+	pgPort     = "5432/tcp"
 
 	deleteAllUsersQuery  = "DELETE FROM users"
 	deleteAllGroupsQuery = "DELETE FROM groups"

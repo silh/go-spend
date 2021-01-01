@@ -3,7 +3,6 @@ package expenses_test
 import (
 	"context"
 	"fmt"
-	"github.com/docker/go-connections/nat"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -20,7 +19,7 @@ const (
 	pgUser     = "user"
 	pgPassword = "password"
 	pgDb       = "expenses"
-	pgPort     = nat.Port("5432/tcp")
+	pgPort     = "5432/tcp"
 
 	deleteAllUsersQuery  = "DELETE FROM users"
 	deleteAllGroupsQuery = "DELETE FROM groups"
