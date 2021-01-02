@@ -46,6 +46,7 @@ type SecurityConfig struct {
 type Application struct {
 	server *http.Server
 	db     *pgxpool.Pool
+	redis  redis.UniversalClient
 }
 
 // NewApplication does all necessary preparations to start the application server
@@ -78,15 +79,27 @@ func NewApplication(config *Config) (*Application, error) {
 
 	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
 
+	// surely this can also be extracted into configuration
+	limiter := createRateLimiter(redisClient)
+	requestLimiter := authentication.NewContextBasedRequestLimiter(limiter)
+
 	userService := authentication.NewDefaultUserService(db, &authentication.BCryptPasswordEncoder{}, userRepository)
 
-	router := NewRouter(authService, authorizer, balanceService, expensesServices, groupService, userService)
+	router := NewRouterWithRateLimit(
+		authService,
+		authorizer,
+		balanceService,
+		expensesServices,
+		groupService,
+		requestLimiter,
+		userService,
+	)
 	server := &http.Server{
 		Addr:        fmt.Sprintf(":%d", config.Port),
 		Handler:     router,
 		ReadTimeout: config.ServerRequestTimeout,
 	}
-	return &Application{server: server, db: db}, nil
+	return &Application{server: server, db: db, redis: redisClient}, nil
 }
 
 // Start a server and block until finished
@@ -99,9 +112,31 @@ func (a *Application) Start() error {
 func (a *Application) Stop() error {
 	log.Info("Stopping the server...")
 	defer a.db.Close()
+	defer a.redis.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return a.server.Shutdown(ctx)
+}
+
+func createRateLimiter(redisClient *redis.Client) *authentication.RedisRateLimiter {
+	limiter := authentication.NewRedisRateLimiter([]authentication.Limit{
+		{
+			Suffix:   "s",
+			Duration: time.Second,
+			Amount:   5,
+		},
+		{
+			Suffix:   "m",
+			Duration: time.Minute,
+			Amount:   1000,
+		},
+		{
+			Suffix:   "h",
+			Duration: time.Hour,
+			Amount:   10000,
+		},
+	}, redisClient)
+	return limiter
 }
 
 func prepareDB(ctx context.Context, config *Config) (*pgxpool.Pool, error) {

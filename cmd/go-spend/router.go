@@ -22,13 +22,13 @@ type Router struct {
 	mux http.Handler
 
 	authenticator   authentication.Authenticator
-	authorizer      authentication.Authorizer
 	balanceService  expenses.BalanceService
 	expensesService expenses.Service
 	groupService    expenses.GroupService
 	userService     authentication.UserService
 }
 
+// NewRouter creates new instance of router with necessary mappings
 func NewRouter(
 	authenticator authentication.Authenticator,
 	authorizer authentication.Authorizer,
@@ -41,17 +41,44 @@ func NewRouter(
 	r := &Router{
 		mux:             mux,
 		authenticator:   authenticator,
-		authorizer:      authorizer,
 		balanceService:  balanceService,
 		expensesService: expensesService,
 		groupService:    groupService,
 		userService:     userService,
 	}
 	mux.Handle("/users", http.HandlerFunc(r.users))
-	mux.Handle("/expenses", r.authorizer.Authorize(r.expenses))
-	mux.Handle("/groups", r.authorizer.Authorize(r.groups))
+	mux.Handle("/expenses", authorizer.Authorize(r.expenses))
+	mux.Handle("/groups", authorizer.Authorize(r.groups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
-	mux.Handle("/balance", r.authorizer.Authorize(r.balance))
+	mux.Handle("/balance", authorizer.Authorize(r.balance))
+	mux.Handle("/health", http.HandlerFunc(r.health))
+	return r
+}
+
+// NewRouterWithRateLimit  creates new instance of router with necessary mappings and rate limit for balance requests
+func NewRouterWithRateLimit(
+	authenticator authentication.Authenticator,
+	authorizer authentication.Authorizer,
+	balanceService expenses.BalanceService,
+	expensesService expenses.Service,
+	groupService expenses.GroupService,
+	limiter authentication.RequestLimiter,
+	userService authentication.UserService,
+) *Router {
+	mux := http.NewServeMux()
+	r := &Router{
+		mux:             mux,
+		authenticator:   authenticator,
+		balanceService:  balanceService,
+		expensesService: expensesService,
+		groupService:    groupService,
+		userService:     userService,
+	}
+	mux.Handle("/users", http.HandlerFunc(r.users))
+	mux.Handle("/expenses", authorizer.Authorize(r.expenses))
+	mux.Handle("/groups", authorizer.Authorize(r.groups))
+	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
+	mux.Handle("/balance", authorizer.Authorize(limiter.RateLimit(r.balance)))
 	mux.Handle("/health", http.HandlerFunc(r.health))
 	return r
 }

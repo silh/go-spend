@@ -37,8 +37,9 @@ var defaultConfig = main.Config{
 	},
 }
 
-func TestNewApplication(t *testing.T) {
+func TestNewApplicationFull(t *testing.T) {
 	defer cleanUpDB(t, context.Background())
+	defer cleanupRedis(t)
 	port, err := getFreePort()
 	require.NoError(t, err)
 	config := defaultConfig
@@ -64,6 +65,50 @@ func TestNewApplication(t *testing.T) {
 
 	//create 4 users, 2 groups
 	checkApplication(t, serverAddr)
+
+	err = application.Stop()
+	if err != nil && err != http.ErrServerClosed {
+		t.Error(err)
+	}
+}
+
+func TestNewApplicationRateLimit(t *testing.T) {
+	defer cleanUpDB(t, context.Background())
+	defer cleanupRedis(t)
+	port, err := getFreePort()
+	require.NoError(t, err)
+	config := defaultConfig
+	config.Port = uint(port)
+
+	application, err := main.NewApplication(&config)
+	require.NoError(t, err)
+	assert.NotNil(t, application)
+
+	errC := make(chan error)
+	go func() {
+		errC <- application.Start()
+	}()
+	serverAddr := fmt.Sprintf("http://localhost:%d", port)
+	healthCheck(t, serverAddr, 3*time.Second)
+
+	//Check if there was an error when starting
+	select {
+	case err = <-errC:
+		t.Error(err)
+	default:
+	}
+
+	//create 4 users, 2 groups
+	user1 := createUser(t, serverAddr, "1")
+	user1.authenticate(t)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
+	user1.requestBalanceWithExpectedCode(t, http.StatusTooManyRequests)
+	time.Sleep(time.Second)
+	user1.requestBalanceWithExpectedCode(t, http.StatusOK)
 
 	err = application.Stop()
 	if err != nil && err != http.ErrServerClosed {
@@ -300,6 +345,16 @@ func (u *systemUser) requestBalance(t *testing.T) expenses.Balance {
 	var balance expenses.Balance
 	require.NoError(t, json.NewDecoder(result.Body).Decode(&balance))
 	return balance
+}
+
+func (u *systemUser) requestBalanceWithExpectedCode(t *testing.T, code int) {
+	request, err := http.NewRequest(http.MethodGet, u.serverAddr+"/balance", nil)
+	u.addAuthHeader(request)
+	require.NoError(t, err)
+	result, err := http.DefaultClient.Do(request)
+	require.NoError(t, err)
+	defer result.Body.Close()
+	require.Equal(t, code, result.StatusCode)
 }
 
 func (u *systemUser) addAuthHeader(r *http.Request) {

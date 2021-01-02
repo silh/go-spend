@@ -3,6 +3,7 @@ package main_test
 import (
 	"context"
 	"fmt"
+	"github.com/go-redis/redis"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -84,4 +85,10 @@ func cleanUpDB(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	_, err = pgdb.Exec(ctx, deleteAllUsersQuery)
 	require.NoError(t, err)
+}
+
+func cleanupRedis(t *testing.T) {
+	client := redis.NewClient(&redis.Options{Addr: defaultConfig.Redis.Addr, Password: redisPassword})
+	defer client.Close()
+	client.FlushAll()
 }
