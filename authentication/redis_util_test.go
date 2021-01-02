@@ -39,3 +39,9 @@ func createRedisContainer(ctx context.Context) string {
 	}
 	return endpoint
 }
+
+func clearRedis() {
+	if err := redisClient.FlushAll().Err(); err != nil {
+		panic(err)
+	}
+}

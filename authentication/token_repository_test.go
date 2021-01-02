@@ -15,6 +15,7 @@ func TestNewRedisTokenRepository(t *testing.T) {
 }
 
 func TestRedisTokenRepositorySaveRetrieve(t *testing.T) {
+	clearRedis()
 	// given
 	tokenRepository := authentication.NewRedisTokenRepository(redisClient)
 	userContext := authentication.UserContext{

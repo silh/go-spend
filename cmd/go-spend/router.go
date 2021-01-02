@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"go-spend/authentication"
 	"go-spend/expenses"
 	"go-spend/log"
@@ -18,22 +17,18 @@ const (
 	NotFound                = "Not Found"
 )
 
-var (
-	ErrUserContextNotFound = errors.New("user context not found")
-)
-
 // Maps HTTP request to proper service. Validates parameters before passing them
 type Router struct {
 	mux http.Handler
 
 	authenticator   authentication.Authenticator
-	authorizer      authentication.Authorizer
 	balanceService  expenses.BalanceService
 	expensesService expenses.Service
 	groupService    expenses.GroupService
 	userService     authentication.UserService
 }
 
+// NewRouter creates new instance of router with necessary mappings
 func NewRouter(
 	authenticator authentication.Authenticator,
 	authorizer authentication.Authorizer,
@@ -46,17 +41,44 @@ func NewRouter(
 	r := &Router{
 		mux:             mux,
 		authenticator:   authenticator,
-		authorizer:      authorizer,
 		balanceService:  balanceService,
 		expensesService: expensesService,
 		groupService:    groupService,
 		userService:     userService,
 	}
 	mux.Handle("/users", http.HandlerFunc(r.users))
-	mux.Handle("/expenses", r.authorizer.Authorize(r.expenses))
-	mux.Handle("/groups", r.authorizer.Authorize(r.groups))
+	mux.Handle("/expenses", authorizer.Authorize(r.expenses))
+	mux.Handle("/groups", authorizer.Authorize(r.groups))
 	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
-	mux.Handle("/balance", r.authorizer.Authorize(r.balance))
+	mux.Handle("/balance", authorizer.Authorize(r.balance))
+	mux.Handle("/health", http.HandlerFunc(r.health))
+	return r
+}
+
+// NewRouterWithRateLimit  creates new instance of router with necessary mappings and rate limit for balance requests
+func NewRouterWithRateLimit(
+	authenticator authentication.Authenticator,
+	authorizer authentication.Authorizer,
+	balanceService expenses.BalanceService,
+	expensesService expenses.Service,
+	groupService expenses.GroupService,
+	limiter authentication.RequestLimiter,
+	userService authentication.UserService,
+) *Router {
+	mux := http.NewServeMux()
+	r := &Router{
+		mux:             mux,
+		authenticator:   authenticator,
+		balanceService:  balanceService,
+		expensesService: expensesService,
+		groupService:    groupService,
+		userService:     userService,
+	}
+	mux.Handle("/users", http.HandlerFunc(r.users))
+	mux.Handle("/expenses", authorizer.Authorize(r.expenses))
+	mux.Handle("/groups", authorizer.Authorize(r.groups))
+	mux.Handle("/authenticate", http.HandlerFunc(r.authenticate))
+	mux.Handle("/balance", authorizer.Authorize(limiter.RateLimit(r.balance)))
 	mux.Handle("/health", http.HandlerFunc(r.health))
 	return r
 }
@@ -120,7 +142,7 @@ func (router *Router) groups(w http.ResponseWriter, r *http.Request) {
 func (router *Router) createGroup(w http.ResponseWriter, r *http.Request) {
 	var createGroupRequest expenses.CreateGroupRequest
 	var err error
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -201,7 +223,7 @@ func handleGroupCreationErrors(
 // expenses handles all request to /expenses endpoint. At the moment that's just Create Expense
 func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 	var err error
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -254,7 +276,7 @@ func (router *Router) createExpense(
 // addToGroup prepares incoming body and starts procedure to add user into a group
 // If everything is correct - responds with 200 without a body
 func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -285,7 +307,7 @@ func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
 // balance handles request to /balance endpoint. At the moment that's only GET of a balance for a current user.
 func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 	var err error
-	user, err := extractUser(r)
+	user, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -313,17 +335,4 @@ func (router *Router) health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(200)
-}
-
-// extractUser from request. It should be put there by Authorizer
-func extractUser(r *http.Request) (authentication.UserContext, error) {
-	value := r.Context().Value("user")
-	if value == nil {
-		return authentication.UserContext{}, ErrUserContextNotFound
-	}
-	userContext, ok := value.(authentication.UserContext)
-	if !ok {
-		return authentication.UserContext{}, ErrUserContextNotFound
-	}
-	return userContext, nil
 }
