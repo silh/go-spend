@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"go-spend/authentication"
 	"go-spend/expenses"
 	"go-spend/log"
@@ -16,10 +15,6 @@ const (
 	ServerError             = "Server Error"
 	Forbidden               = "Forbidden"
 	NotFound                = "Not Found"
-)
-
-var (
-	ErrUserContextNotFound = errors.New("user context not found")
 )
 
 // Maps HTTP request to proper service. Validates parameters before passing them
@@ -120,7 +115,7 @@ func (router *Router) groups(w http.ResponseWriter, r *http.Request) {
 func (router *Router) createGroup(w http.ResponseWriter, r *http.Request) {
 	var createGroupRequest expenses.CreateGroupRequest
 	var err error
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -201,7 +196,7 @@ func handleGroupCreationErrors(
 // expenses handles all request to /expenses endpoint. At the moment that's just Create Expense
 func (router *Router) expenses(w http.ResponseWriter, r *http.Request) {
 	var err error
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -254,7 +249,7 @@ func (router *Router) createExpense(
 // addToGroup prepares incoming body and starts procedure to add user into a group
 // If everything is correct - responds with 200 without a body
 func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
-	userContext, err := extractUser(r)
+	userContext, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -285,7 +280,7 @@ func (router *Router) addToGroup(w http.ResponseWriter, r *http.Request) {
 // balance handles request to /balance endpoint. At the moment that's only GET of a balance for a current user.
 func (router *Router) balance(w http.ResponseWriter, r *http.Request) {
 	var err error
-	user, err := extractUser(r)
+	user, err := authentication.ExtractUser(r)
 	if err != nil {
 		http.Error(w, Forbidden, http.StatusForbidden)
 		return
@@ -313,17 +308,4 @@ func (router *Router) health(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(200)
-}
-
-// extractUser from request. It should be put there by Authorizer
-func extractUser(r *http.Request) (authentication.UserContext, error) {
-	value := r.Context().Value("user")
-	if value == nil {
-		return authentication.UserContext{}, ErrUserContextNotFound
-	}
-	userContext, ok := value.(authentication.UserContext)
-	if !ok {
-		return authentication.UserContext{}, ErrUserContextNotFound
-	}
-	return userContext, nil
 }

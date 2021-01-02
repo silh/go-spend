@@ -6,6 +6,7 @@ import (
 	"github.com/go-redis/redis"
 	"go-spend/log"
 	"go-spend/util"
+	"net/http"
 	"time"
 )
 
@@ -91,4 +92,44 @@ type Limit struct {
 	Suffix   util.NonEmptyString
 	Duration time.Duration
 	Amount   uint64
+}
+
+// RequestLimiter creates limited http.Handler wrapping the provided original handler.
+type RequestLimiter interface {
+	// RateLimit the passed handler
+	RateLimit(next http.HandlerFunc) http.HandlerFunc
+}
+
+// ContextBasedRequestLimiter is RequestLimiter that extracts user info from request context and checks limit based on
+// that information. If user is not present in request the request is not limited! A warning message will appear in logs
+type ContextBasedRequestLimiter struct {
+	rateLimiter RateLimiter
+}
+
+// NewContextBasedRequestLimiter creates new instance of ContextBasedRequestLimiter
+func NewContextBasedRequestLimiter(rateLimiter RateLimiter) *ContextBasedRequestLimiter {
+	return &ContextBasedRequestLimiter{rateLimiter: rateLimiter}
+}
+
+// RateLimit extract user from request context and rate limit the request
+func (rh *ContextBasedRequestLimiter) RateLimit(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !rh.isUnderLimit(r) {
+			http.Error(w, "Too many requests", http.StatusTooManyRequests)
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+func (rh *ContextBasedRequestLimiter) isUnderLimit(r *http.Request) bool {
+	user, err := ExtractUser(r)
+	path := r.URL.Path
+	if err != nil {
+		log.Error(
+			"couldn't rate limit request to %s because use not present in context, possible misconfiguration!",
+			path,
+		)
+		return true
+	}
+	return rh.rateLimiter.IsUnderLimits(LimitContext{UserID: user.UserID, Path: path})
 }

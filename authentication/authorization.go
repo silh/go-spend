@@ -2,6 +2,7 @@ package authentication
 
 import (
 	"context"
+	"errors"
 	"go-spend/authentication/jwt"
 	"net/http"
 	"strings"
@@ -9,6 +10,10 @@ import (
 
 const (
 	NotAuthorized = "Not Authorized"
+)
+
+var (
+	ErrUserContextNotFound = errors.New("user context not found")
 )
 
 // Authorizer adds UserContext to a request
@@ -60,4 +65,17 @@ func (a *JWTAuthorizer) Authorize(realHandler http.HandlerFunc) http.HandlerFunc
 		requestWithUser := r.WithContext(contextWithUser)
 		realHandler.ServeHTTP(w, requestWithUser)
 	}
+}
+
+// ExtractUser from request. It should be put there by Authorizer
+func ExtractUser(r *http.Request) (UserContext, error) {
+	value := r.Context().Value("user")
+	if value == nil {
+		return UserContext{}, ErrUserContextNotFound
+	}
+	userContext, ok := value.(UserContext)
+	if !ok {
+		return UserContext{}, ErrUserContextNotFound
+	}
+	return userContext, nil
 }
