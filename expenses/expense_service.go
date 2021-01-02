@@ -98,3 +98,38 @@ func (d *DefaultService) validateUsersInContext(
 	}
 	return nil
 }
+
+// CacheRemovingService is am expenses Service that removes Balance caches for involved users after successful storage
+// of new expense for them
+type CacheRemovingService struct {
+	delegate            Service
+	balanceCacheCleaner BalanceCacheCleaner
+}
+
+// NewCacheRemovingService creates a new instance of CacheRemovingService
+func NewCacheRemovingService(delegate Service, balanceCacheCleaner BalanceCacheCleaner) *CacheRemovingService {
+	return &CacheRemovingService{delegate: delegate, balanceCacheCleaner: balanceCacheCleaner}
+}
+
+// Create delegates creation and performs cache clean-up after successful creation
+func (c *CacheRemovingService) Create(ctx context.Context, newExpense CreateExpenseContext) (ExpenseResponse, error) {
+	expenseResponse, err := c.delegate.Create(ctx, newExpense)
+	if err != nil {
+		return ExpenseResponse{}, err
+	}
+	c.cleanCache(expenseResponse)
+	return expenseResponse, nil
+}
+
+// cleanCache remove values from cache for involved users, can probably be done asynchronously
+func (c *CacheRemovingService) cleanCache(expenseResponse ExpenseResponse) {
+	keys := make([]BalanceCacheKey, len(expenseResponse.Shares))
+	i := 0
+	for key := range expenseResponse.Shares {
+		keys[i] = BalanceCacheKey(key)
+		i++
+	}
+	if err := c.balanceCacheCleaner.Remove(keys...); err != nil {
+		log.Warn("couldn't clear cache for keys - err", err)
+	}
+}

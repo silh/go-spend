@@ -62,7 +62,11 @@ func checkApplication(t *testing.T, serverAddr string) {
 	user2.authenticate(t)
 	user2.addUserToGroup(t, user3.ID, group1ID)
 	user3.authenticate(t)
-	// start paying
+	// request balances to trigger the cache
+	user1.requestBalance(t)
+	user2.requestBalance(t)
+	user3.requestBalance(t)
+	// start paying, that should clean the cache for whom it is needed
 	user1.payForPizza(t)
 	user2.payForCoffee(t)
 	checkBalances(t, user1, user2, user3)

@@ -16,13 +16,38 @@ type mockExpensesRepository struct {
 	mock.Mock
 }
 
-func (m *mockExpensesRepository) Create(ctx context.Context, db pgxtype.Querier, req expenses.NewExpense) (expenses.Expense, error) {
+func (m *mockExpensesRepository) Create(
+	ctx context.Context,
+	db pgxtype.Querier,
+	req expenses.NewExpense,
+) (expenses.Expense, error) {
 	args := m.Called(ctx, db, req)
 	return args.Get(0).(expenses.Expense), args.Error(1)
 }
 
 func (m *mockExpensesRepository) CreateShares(ctx context.Context, db pgxtype.Querier, req expenses.CreateExpenseShares) error {
 	args := m.Called(ctx, db, req)
+	return args.Error(0)
+}
+
+type mockExpensesService struct {
+	mock.Mock
+}
+
+func (m *mockExpensesService) Create(
+	ctx context.Context,
+	newExpense expenses.CreateExpenseContext,
+) (expenses.ExpenseResponse, error) {
+	args := m.Called(ctx, newExpense)
+	return args.Get(0).(expenses.ExpenseResponse), args.Error(1)
+}
+
+type mockBalanceCacheCleaner struct {
+	mock.Mock
+}
+
+func (m *mockBalanceCacheCleaner) Remove(keys ...expenses.BalanceCacheKey) error {
+	args := m.Called(keys)
 	return args.Error(0)
 }
 
@@ -269,6 +294,59 @@ func TestExpensesServiceFindUsersFails(t *testing.T) {
 
 	// then
 	require.EqualError(t, err, "expected")
+}
+
+func TestCacheRemovingService(t *testing.T) {
+	tests := []struct {
+		name               string
+		cacheRemovalResult error
+	}{
+		{
+			name:               "removed",
+			cacheRemovalResult: nil,
+		},
+		{
+			name:               "error",
+			cacheRemovalResult: errors.New("mmmmm"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// given
+			ctx := context.Background()
+			cacheCleaner := new(mockBalanceCacheCleaner)
+			delegate := new(mockExpensesService)
+			service := expenses.NewCacheRemovingService(delegate, cacheCleaner)
+			expenseContext := expenses.CreateExpenseContext{UserID: 1}
+			response := expenses.ExpenseResponse{UserID: 1}
+			delegate.On("Create", ctx, expenseContext).Return(response, nil)
+			cacheCleaner.On("Remove", mock.Anything).Return(test.cacheRemovalResult)
+
+			// when
+			result, err := service.Create(ctx, expenseContext)
+
+			// then
+			require.NoError(t, err)
+			assert.Equal(t, response, result)
+		})
+	}
+}
+
+func TestCacheRemovingServiceErrorFromDelegateReturned(t *testing.T) {
+	// given
+	ctx := context.Background()
+	cacheCleaner := new(mockBalanceCacheCleaner)
+	delegate := new(mockExpensesService)
+	service := expenses.NewCacheRemovingService(delegate, cacheCleaner)
+	expenseContext := expenses.CreateExpenseContext{UserID: 1}
+	response := expenses.ExpenseResponse{UserID: 1}
+	delegate.On("Create", ctx, expenseContext).Return(response, errors.New("zzzz"))
+
+	// when
+	_, err := service.Create(ctx, expenseContext)
+
+	// then
+	require.EqualError(t, err, "zzzz")
 }
 
 func createProperUser(

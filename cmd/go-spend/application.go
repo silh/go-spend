@@ -69,13 +69,16 @@ func NewApplication(config *Config) (*Application, error) {
 	authService := authentication.NewAuthService(db, tokenCreator, tokenRepository, passwordEncoder, userRepository)
 
 	authorizer := authentication.NewJWTAuthorizer(accessAlg, tokenRepository)
-
+	balanceCache := expenses.NewRedisBalanceCache(redisClient, 15*time.Minute) // this can be configurable of course
 	repository := expenses.NewPgBalanceRepository()
-	balanceService := expenses.NewDefaultBalanceService(db, repository)
+	balanceService := expenses.NewDefaultBalanceService(db, balanceCache, repository)
 
 	groupRepository := expenses.NewPgGroupRepository()
 	expensesRepository := expenses.NewPgRepository()
-	expensesServices := expenses.NewDefaultService(db, groupRepository, expensesRepository)
+	expensesServices := expenses.NewCacheRemovingService(
+		expenses.NewDefaultService(db, groupRepository, expensesRepository),
+		balanceCache,
+	)
 
 	groupService := expenses.NewDefaultGroupService(db, userRepository, groupRepository)
 
