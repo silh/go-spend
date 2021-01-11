@@ -3,7 +3,7 @@ package expenses
 import (
 	"context"
 	"errors"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgtype/pgxtype"
 	"go-spend/db"
 	"go-spend/log"
 )
@@ -25,6 +25,7 @@ type DefaultService struct {
 	expensesRepository Repository
 }
 
+// NewDefaultService creates new instance of DefaultService
 func NewDefaultService(
 	db db.TxQuerier,
 	groupRepository GroupRepository,
@@ -33,50 +34,46 @@ func NewDefaultService(
 	return &DefaultService{db: db, groupRepository: groupRepository, expensesRepository: expensesRepository}
 }
 
-func (d *DefaultService) Create(ctx context.Context, createExpenseContext CreateExpenseContext) (ExpenseResponse, error) {
-	tx, err := d.db.Begin(ctx)
-	if err != nil {
-		return ExpenseResponse{}, err
-	}
-	defer func() {
-		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			log.Error("failed to rollback transaction - %s", err.Error())
+// Create a new expense in the system with provided user and group context
+func (d *DefaultService) Create(
+	ctx context.Context,
+	createExpenseContext CreateExpenseContext,
+) (ExpenseResponse, error) {
+	var resp ExpenseResponse
+	err := db.WithTx(ctx, d.db, func(tx pgxtype.Querier) error {
+		newExpense := NewExpense{
+			UserID: createExpenseContext.UserID,
+			Amount: createExpenseContext.Amount,
 		}
-	}()
-	newExpense := NewExpense{
-		UserID: createExpenseContext.UserID,
-		Amount: createExpenseContext.Amount,
-	}
-	err = d.validateUsersInContext(ctx, createExpenseContext, tx)
-	if err != nil {
-		return ExpenseResponse{}, err
-	}
-	createdExpense, err := d.expensesRepository.Create(ctx, tx, newExpense)
-	if err != nil {
-		return ExpenseResponse{}, err
-	}
-	createExpenseShares := CreateExpenseShares{
-		ExpenseID: createdExpense.ID,
-		Shares:    createExpenseContext.Shares,
-	}
-	if err = d.expensesRepository.CreateShares(ctx, tx, createExpenseShares); err != nil {
-		return ExpenseResponse{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return ExpenseResponse{}, err
-	}
-	return ExpenseResponse{
-		UserID:    createExpenseContext.UserID,
-		Amount:    createExpenseContext.Amount,
-		Timestamp: createdExpense.Timestamp,
-		Shares:    createExpenseContext.Shares,
-	}, nil
+		if err := d.validateUsersInContext(ctx, createExpenseContext, tx); err != nil {
+			return err
+		}
+		createdExpense, err := d.expensesRepository.Create(ctx, tx, newExpense)
+		if err != nil {
+			return err
+		}
+		createExpenseShares := CreateExpenseShares{
+			ExpenseID: createdExpense.ID,
+			Shares:    createExpenseContext.Shares,
+		}
+		if err = d.expensesRepository.CreateShares(ctx, tx, createExpenseShares); err != nil {
+			return err
+		}
+		resp = ExpenseResponse{
+			UserID:    createExpenseContext.UserID,
+			Amount:    createExpenseContext.Amount,
+			Timestamp: createdExpense.Timestamp,
+			Shares:    createExpenseContext.Shares,
+		}
+		return nil
+	})
+	return resp, err
 }
 
 func (d *DefaultService) validateUsersInContext(
 	ctx context.Context,
 	createExpenseContext CreateExpenseContext,
-	tx pgx.Tx,
+	tx pgxtype.Querier,
 ) error {
 	group, err := d.groupRepository.FindByIDWithUsers(ctx, tx, createExpenseContext.GroupID)
 	if err != nil {

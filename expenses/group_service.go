@@ -2,9 +2,8 @@ package expenses
 
 import (
 	"context"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgtype/pgxtype"
 	"go-spend/db"
-	"go-spend/log"
 )
 
 // Perform operations with groups of Users
@@ -40,39 +39,32 @@ func NewDefaultGroupService(
 // If group with such name exists - returns ErrGroupNameAlreadyExists
 func (d *DefaultGroupService) Create(ctx context.Context, request CreateGroupContext) (GroupResponse, error) {
 	id := request.CreatorID
-	tx, err := d.db.Begin(ctx)
-	if err != nil {
-		return GroupResponse{}, err
-	}
-	defer func() {
-		if err := tx.Rollback(ctx); err != nil && err != pgx.ErrTxClosed {
-			log.Error("failed to rollback transaction - %s", err.Error())
+	var resp GroupResponse
+	err := db.WithTx(ctx, d.db, func(tx pgxtype.Querier) error {
+		creator, err := d.userRepository.FindById(ctx, tx, id)
+		if err != nil {
+			return err
 		}
-	}() // safe to do so even after commit according to docs
-	creator, err := d.userRepository.FindById(ctx, tx, id)
-	if err != nil {
-		return GroupResponse{}, err
-	}
-	group, err := d.groupRepository.Create(ctx, tx, request.Name)
-	if err != nil {
-		return GroupResponse{}, err
-	}
-	if err = d.groupRepository.AddUserToGroup(ctx, tx, creator.ID, group.ID); err != nil {
-		return GroupResponse{}, err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return GroupResponse{}, err
-	}
-	return GroupResponse{
-		ID:   group.ID,
-		Name: group.Name,
-		Users: []UserResponse{
-			{
-				ID:    creator.ID,
-				Email: creator.Email,
+		group, err := d.groupRepository.Create(ctx, tx, request.Name)
+		if err != nil {
+			return err
+		}
+		if err = d.groupRepository.AddUserToGroup(ctx, tx, creator.ID, group.ID); err != nil {
+			return err
+		}
+		resp = GroupResponse{
+			ID:   group.ID,
+			Name: group.Name,
+			Users: []UserResponse{
+				{
+					ID:    creator.ID,
+					Email: creator.Email,
+				},
 			},
-		},
-	}, nil
+		}
+		return nil
+	})
+	return resp, err
 }
 
 func (d *DefaultGroupService) FindByID(ctx context.Context, id uint) (GroupResponse, error) {
